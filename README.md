@@ -183,6 +183,13 @@ This project was built for the **Apple Swift Student Challenge 2026**, showcasin
 
 ## Changelog
 
+### v1.3.0 (2026-01-20)
+- Added 11 effect pedal types: Compressor, EQ, Overdrive, Distortion, Fuzz, Chorus, Phaser, Flanger, Tremolo, Delay, Reverb
+- Organized effects by category: Dynamics, Filter & Pitch, Gain/Dirt, Modulation, Time & Ambience
+- Added 16 built-in presets across Clean, Crunch, Heavy, and Ambient categories
+- Integrated EffectGuideData with EffectType following DRY principle
+- Each effect has educational content: description, how to use, signal chain position, famous examples
+
 ### v1.2.0 (2026-01-20)
 - Refactored Effect Guide to follow Clean Architecture and SOLID principles
 - Separated Data Layer (`EffectGuideData.swift`) from Presentation Layer (`EffectGuideView.swift`)

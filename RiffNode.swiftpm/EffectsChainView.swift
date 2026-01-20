@@ -20,15 +20,21 @@ struct EffectsChainView: View {
 
                 Spacer()
 
-                // Add effect menu
+                // Add effect menu - organized by category
                 Menu {
-                    ForEach(EffectType.allCases) { type in
-                        Button {
-                            withAnimation(.spring(duration: 0.3)) {
-                                engine.addEffect(type)
+                    ForEach(EffectCategory.allCases) { category in
+                        Menu {
+                            ForEach(EffectType.effectTypes(for: category)) { type in
+                                Button {
+                                    withAnimation(.spring(duration: 0.3)) {
+                                        engine.addEffect(type)
+                                    }
+                                } label: {
+                                    Label(type.rawValue, systemImage: type.icon)
+                                }
                             }
                         } label: {
-                            Label(type.rawValue, systemImage: type.icon)
+                            Label(category.rawValue, systemImage: category.icon)
                         }
                     }
                 } label: {
@@ -332,26 +338,7 @@ struct PedalControlsView: View {
             }
 
             // Knobs based on effect type
-            HStack(spacing: 24) {
-                switch effect.type {
-                case .distortion:
-                    KnobView(label: "DRIVE", value: binding(for: "drive"), range: 0...100, color: effect.type.color)
-                    KnobView(label: "MIX", value: binding(for: "mix"), range: 0...100, color: effect.type.color)
-
-                case .delay:
-                    KnobView(label: "TIME", value: binding(for: "time"), range: 0...2, color: effect.type.color, format: "%.2fs")
-                    KnobView(label: "FEEDBACK", value: binding(for: "feedback"), range: 0...100, color: effect.type.color)
-                    KnobView(label: "MIX", value: binding(for: "mix"), range: 0...100, color: effect.type.color)
-
-                case .reverb:
-                    KnobView(label: "WET/DRY", value: binding(for: "wetDryMix"), range: 0...100, color: effect.type.color)
-
-                case .equalizer:
-                    KnobView(label: "BASS", value: binding(for: "bass"), range: -12...12, color: .red, format: "%.1fdB")
-                    KnobView(label: "MID", value: binding(for: "mid"), range: -12...12, color: .yellow, format: "%.1fdB")
-                    KnobView(label: "TREBLE", value: binding(for: "treble"), range: -12...12, color: .cyan, format: "%.1fdB")
-                }
-            }
+            EffectKnobsView(effect: effect, binding: binding)
         }
         .padding()
         .background(
@@ -518,6 +505,78 @@ struct FlowLayout: Layout {
             }
             
             self.size.height = y + rowHeight
+        }
+    }
+}
+
+// MARK: - Effect Knobs View
+// Following Single Responsibility: Only renders knobs for each effect type
+
+struct EffectKnobsView: View {
+    let effect: EffectNode
+    let binding: (String) -> Binding<Float>
+    
+    var body: some View {
+        HStack(spacing: 24) {
+            switch effect.type {
+            // Dynamics
+            case .compressor:
+                KnobView(label: "THRESHOLD", value: binding("threshold"), range: -40...0, color: effect.type.color, format: "%.0fdB")
+                KnobView(label: "RATIO", value: binding("ratio"), range: 1...20, color: effect.type.color, format: "%.1f:1")
+                KnobView(label: "ATTACK", value: binding("attack"), range: 0.1...100, color: effect.type.color, format: "%.0fms")
+                
+            // Filter & Pitch
+            case .equalizer:
+                KnobView(label: "BASS", value: binding("bass"), range: -12...12, color: .red, format: "%.1fdB")
+                KnobView(label: "MID", value: binding("mid"), range: -12...12, color: .yellow, format: "%.1fdB")
+                KnobView(label: "TREBLE", value: binding("treble"), range: -12...12, color: .cyan, format: "%.1fdB")
+                
+            // Gain / Dirt
+            case .overdrive:
+                KnobView(label: "DRIVE", value: binding("drive"), range: 0...100, color: effect.type.color)
+                KnobView(label: "TONE", value: binding("tone"), range: 0...100, color: effect.type.color)
+                KnobView(label: "LEVEL", value: binding("level"), range: 0...100, color: effect.type.color)
+                
+            case .distortion:
+                KnobView(label: "DRIVE", value: binding("drive"), range: 0...100, color: effect.type.color)
+                KnobView(label: "TONE", value: binding("tone"), range: 0...100, color: effect.type.color)
+                KnobView(label: "LEVEL", value: binding("level"), range: 0...100, color: effect.type.color)
+                
+            case .fuzz:
+                KnobView(label: "FUZZ", value: binding("fuzz"), range: 0...100, color: effect.type.color)
+                KnobView(label: "TONE", value: binding("tone"), range: 0...100, color: effect.type.color)
+                KnobView(label: "LEVEL", value: binding("level"), range: 0...100, color: effect.type.color)
+                
+            // Modulation
+            case .chorus:
+                KnobView(label: "RATE", value: binding("rate"), range: 0.1...10, color: effect.type.color, format: "%.1fHz")
+                KnobView(label: "DEPTH", value: binding("depth"), range: 0...100, color: effect.type.color)
+                KnobView(label: "MIX", value: binding("mix"), range: 0...100, color: effect.type.color)
+                
+            case .phaser:
+                KnobView(label: "RATE", value: binding("rate"), range: 0.1...5, color: effect.type.color, format: "%.1fHz")
+                KnobView(label: "DEPTH", value: binding("depth"), range: 0...100, color: effect.type.color)
+                KnobView(label: "FEEDBACK", value: binding("feedback"), range: 0...100, color: effect.type.color)
+                
+            case .flanger:
+                KnobView(label: "RATE", value: binding("rate"), range: 0.1...2, color: effect.type.color, format: "%.2fHz")
+                KnobView(label: "DEPTH", value: binding("depth"), range: 0...100, color: effect.type.color)
+                KnobView(label: "FEEDBACK", value: binding("feedback"), range: 0...100, color: effect.type.color)
+                
+            case .tremolo:
+                KnobView(label: "RATE", value: binding("rate"), range: 0.5...15, color: effect.type.color, format: "%.1fHz")
+                KnobView(label: "DEPTH", value: binding("depth"), range: 0...100, color: effect.type.color)
+                
+            // Time & Ambience
+            case .delay:
+                KnobView(label: "TIME", value: binding("time"), range: 0...2, color: effect.type.color, format: "%.2fs")
+                KnobView(label: "FEEDBACK", value: binding("feedback"), range: 0...100, color: effect.type.color)
+                KnobView(label: "MIX", value: binding("mix"), range: 0...100, color: effect.type.color)
+
+            case .reverb:
+                KnobView(label: "WET/DRY", value: binding("wetDryMix"), range: 0...100, color: effect.type.color)
+                KnobView(label: "DECAY", value: binding("decay"), range: 0.1...5, color: effect.type.color, format: "%.1fs")
+            }
         }
     }
 }

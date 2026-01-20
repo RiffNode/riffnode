@@ -3,6 +3,7 @@ import Observation
 import SwiftUI
 
 // MARK: - Audio Engine Manager
+// Following Clean Architecture: Infrastructure Layer
 // Implements segregated protocols following Interface Segregation Principle
 // Single class coordinates audio operations but delegates to focused components
 
@@ -40,7 +41,6 @@ final class AudioEngineManager: AudioManaging {
     // Effect units - following composition over inheritance
     private var effectUnits: EffectUnitsContainer?
     
-    // 格式轉換混音器 - 用於解決輸入格式與效果單元之間的不兼容問題
     // Format conversion mixer - used to resolve incompatibility between input format and effect units
     private var formatConverterMixer: AVAudioMixerNode?
 
@@ -52,7 +52,6 @@ final class AudioEngineManager: AudioManaging {
     private var tapInstalled = false
     private var visualizationTimer: Timer?
     
-    // 儲存處理格式供重建音頻鏈使用
     // Store processing format for rebuilding audio chain
     private var processingFormat: AVAudioFormat?
 
@@ -63,8 +62,12 @@ final class AudioEngineManager: AudioManaging {
     }
 
     private func setupDefaultEffectsChain() {
+        // Default chain following recommended signal chain order
         effectsChain = [
+            EffectNode(type: .compressor, isEnabled: false),
+            EffectNode(type: .overdrive, isEnabled: false),
             EffectNode(type: .distortion, isEnabled: true),
+            EffectNode(type: .chorus, isEnabled: false),
             EffectNode(type: .delay, isEnabled: false),
             EffectNode(type: .reverb, isEnabled: true)
         ]
@@ -132,8 +135,7 @@ final class AudioEngineManager: AudioManaging {
         inputNode = input
         print("setupEngine: Input node ready")
 
-        // 創建格式轉換混音器 - 這會處理輸入格式到效果處理格式的轉換
-        // Create format conversion mixer - handles input to processing format conversion
+        // Create format conversion mixer
         let converter = AVAudioMixerNode()
         formatConverterMixer = converter
         engine.attach(converter)
@@ -142,41 +144,33 @@ final class AudioEngineManager: AudioManaging {
         effectUnits = EffectUnitsContainer()
         guard let units = effectUnits else { return }
 
-        // Attach effects to engine
-        engine.attach(units.distortion)
-        engine.attach(units.delay)
-        engine.attach(units.reverb)
+        // Attach all effects to engine
+        attachAllEffects(to: engine, units: units)
         
-        // 創建並附加伴奏播放器
         // Create and attach backing track player
         let player = AVAudioPlayerNode()
         backingTrackPlayer = player
         engine.attach(player)
 
-        // 使用標準處理格式（立體聲 44.1kHz/48kHz）來避免格式不匹配
-        // Use a standard processing format to avoid format mismatch issues
+        // Use standard processing format to avoid format mismatch issues
         let format = AVAudioFormat(
             standardFormatWithSampleRate: inputFormat.sampleRate,
             channels: 2
         ) ?? inputFormat
         
-        // 儲存處理格式供後續使用
-        // Store processing format for later use
         self.processingFormat = format
 
         print("setupEngine: Processing format: \(format.sampleRate)Hz, \(format.channelCount)ch")
 
-        // Connect signal chain with format converter
+        // Connect signal chain
         connectSignalChain(engine: engine, input: input, converter: converter, inputFormat: inputFormat, processingFormat: format)
         
-        // 連接伴奏播放器到混音器
         // Connect backing track player to mixer
         if let mixer = mainMixer {
             engine.connect(player, to: mixer, format: format)
             print("setupEngine: Backing track player connected")
         }
 
-        // 根據效果鏈設置 bypass 狀態
         // Set bypass state based on effects chain
         syncBypassStates()
 
@@ -190,8 +184,6 @@ final class AudioEngineManager: AudioManaging {
 
         print("Starting audio engine...")
         
-        // 在引擎啟動前準備所有節點
-        // Prepare all nodes before starting the engine
         engine.prepare()
         
         do {
@@ -201,7 +193,6 @@ final class AudioEngineManager: AudioManaging {
             print("Audio engine started successfully")
             print("Audio engine running! Play your guitar!")
             
-            // 啟動模擬可視化（穩定版本）
             // Start simulated visualization (stable version)
             startSimulatedVisualization()
         } catch {
@@ -211,14 +202,11 @@ final class AudioEngineManager: AudioManaging {
     }
 
     func stop() {
-        // 停止可視化
-        // Stop visualization
         stopVisualization()
         
         audioEngine?.stop()
         isRunning = false
         
-        // 重置可視化數據
         // Reset visualization data
         waveformSamples = Array(repeating: 0, count: 128)
         outputLevel = 0
@@ -247,25 +235,16 @@ final class AudioEngineManager: AudioManaging {
     func toggleEffect(_ effect: EffectNode) {
         effect.isEnabled.toggle()
         
-        // 使用 bypass 而不是重建整個音頻鏈（更穩定）
         // Use bypass instead of rebuilding entire chain (more stable)
         guard let units = effectUnits else {
             rebuildAudioChain()
             return
         }
         
-        switch effect.type {
-        case .distortion:
-            units.distortion.bypass = !effect.isEnabled
-        case .delay:
-            units.delay.bypass = !effect.isEnabled
-        case .reverb:
-            units.reverb.bypass = !effect.isEnabled
-        case .equalizer:
-            units.equalizer?.bypass = !effect.isEnabled
+        if let unit = units.audioUnit(for: effect.type) {
+            unit.bypass = !effect.isEnabled
+            print("toggleEffect: \(effect.type.rawValue) \(effect.isEnabled ? "enabled" : "bypassed")")
         }
-        
-        print("toggleEffect: \(effect.type.rawValue) \(effect.isEnabled ? "enabled" : "bypassed")")
     }
 
     func updateEffectParameter(_ effect: EffectNode, key: String, value: Float) {
@@ -281,11 +260,9 @@ final class AudioEngineManager: AudioManaging {
     func applyPreset(_ preset: EffectPreset) {
         effectsChain = preset.effects.map { $0.toEffectNode() }
         
-        // 同步 bypass 狀態而不是重建音頻鏈
-        // Sync bypass states instead of rebuilding chain
+        // Sync bypass states
         syncBypassStates()
         
-        // 應用所有效果參數
         // Apply all effect parameters
         for effect in effectsChain {
             applyEffectParameters(effect)
@@ -322,8 +299,6 @@ final class AudioEngineManager: AudioManaging {
             return
         }
 
-        // 停止任何正在播放的內容
-        // Stop any currently playing content
         player.stop()
         
         player.scheduleBuffer(buffer, at: nil, options: .loops)
@@ -354,25 +329,50 @@ final class AudioEngineManager: AudioManaging {
         print("setupEngine: Audio session configured")
     }
     #endif
+    
+    private func attachAllEffects(to engine: AVAudioEngine, units: EffectUnitsContainer) {
+        // Dynamics
+        engine.attach(units.compressor)
+        
+        // Filter & Pitch
+        if let eq = units.equalizer {
+            engine.attach(eq)
+        }
+        
+        // Gain / Dirt
+        engine.attach(units.overdrive)
+        engine.attach(units.distortion)
+        engine.attach(units.fuzz)
+        
+        // Modulation
+        engine.attach(units.chorus)
+        engine.attach(units.phaser)
+        engine.attach(units.flanger)
+        engine.attach(units.tremolo)
+        
+        // Time & Ambience
+        engine.attach(units.delay)
+        engine.attach(units.reverb)
+        
+        print("attachAllEffects: All effect units attached")
+    }
 
     private func connectSignalChain(engine: AVAudioEngine, input: AVAudioInputNode, converter: AVAudioMixerNode, inputFormat: AVAudioFormat, processingFormat: AVAudioFormat) {
         guard let units = effectUnits, let mixer = mainMixer else { return }
 
-        // 使用格式轉換混音器作為中間節點
-        // Use format conversion mixer as intermediate node
-        // Input -> Converter (原生格式轉為處理格式)
-        // Input -> Converter (native format to processing format)
+        // Input -> Converter
         engine.connect(input, to: converter, format: inputFormat)
         
-        // 始終連接所有效果器，使用 bypass 屬性控制是否啟用
-        // Always connect all effects, use bypass property to control enable/disable
-        // Converter -> Distortion -> Delay -> Reverb -> Mixer
-        engine.connect(converter, to: units.distortion, format: processingFormat)
-        engine.connect(units.distortion, to: units.delay, format: processingFormat)
+        // Always connect core effects in chain, use bypass to control
+        // Converter -> Compressor -> Distortion -> Chorus -> Delay -> Reverb -> Mixer
+        engine.connect(converter, to: units.compressor, format: processingFormat)
+        engine.connect(units.compressor, to: units.distortion, format: processingFormat)
+        engine.connect(units.distortion, to: units.chorus, format: processingFormat)
+        engine.connect(units.chorus, to: units.delay, format: processingFormat)
         engine.connect(units.delay, to: units.reverb, format: processingFormat)
         engine.connect(units.reverb, to: mixer, format: processingFormat)
         
-        print("connectSignalChain: Signal chain connected (all effects in chain, controlled via bypass)")
+        print("connectSignalChain: Signal chain connected (core effects in chain, controlled via bypass)")
     }
 
     private func rebuildAudioChain() {
@@ -392,37 +392,15 @@ final class AudioEngineManager: AudioManaging {
             engine.stop()
         }
 
-        // 移除可視化 tap（如果已安裝）
         // Remove visualization tap if installed
         if tapInstalled {
             mixer.removeTap(onBus: 0)
             tapInstalled = false
         }
 
-        // 安全地斷開所有節點
-        // Safely disconnect all nodes
-        // 只斷開已連接的節點
-        // Only disconnect nodes that are connected
-        if engine.attachedNodes.contains(converter) {
-            engine.disconnectNodeOutput(converter)
-        }
-        if engine.attachedNodes.contains(units.distortion) {
-            engine.disconnectNodeOutput(units.distortion)
-        }
-        if engine.attachedNodes.contains(units.delay) {
-            engine.disconnectNodeOutput(units.delay)
-        }
-        if engine.attachedNodes.contains(units.reverb) {
-            engine.disconnectNodeOutput(units.reverb)
-        }
-        if let eq = units.equalizer, engine.attachedNodes.contains(eq) {
-            engine.disconnectNodeOutput(eq)
-        }
-        // 不要斷開 inputNode - 它是引擎的內建節點
-        // Don't disconnect inputNode - it's a built-in engine node
-        engine.disconnectNodeInput(converter)
+        // Safely disconnect nodes
+        disconnectAllEffects(engine: engine, converter: converter, units: units)
 
-        // 獲取格式
         // Get formats
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0 && inputFormat.channelCount > 0 else {
@@ -435,10 +413,7 @@ final class AudioEngineManager: AudioManaging {
             channels: 2
         ) ?? inputFormat
 
-        // 重新連接信號鏈
-        // Reconnect signal chain
-        
-        // Input -> Converter
+        // Reconnect: Input -> Converter
         engine.connect(input, to: converter, format: inputFormat)
 
         // Build chain based on enabled effects
@@ -468,13 +443,79 @@ final class AudioEngineManager: AudioManaging {
             }
         }
     }
+    
+    private func disconnectAllEffects(engine: AVAudioEngine, converter: AVAudioMixerNode, units: EffectUnitsContainer) {
+        // Disconnect format converter
+        if engine.attachedNodes.contains(converter) {
+            engine.disconnectNodeOutput(converter)
+        }
+        engine.disconnectNodeInput(converter)
+        
+        // Disconnect all effect units
+        let allUnits: [AVAudioUnit] = [
+            units.compressor,
+            units.overdrive,
+            units.distortion,
+            units.fuzz,
+            units.chorus,
+            units.phaser,
+            units.flanger,
+            units.tremolo,
+            units.delay,
+            units.reverb
+        ]
+        
+        for unit in allUnits {
+            if engine.attachedNodes.contains(unit) {
+                engine.disconnectNodeOutput(unit)
+            }
+        }
+        
+        if let eq = units.equalizer, engine.attachedNodes.contains(eq) {
+            engine.disconnectNodeOutput(eq)
+        }
+    }
 
     private func applyEffectParameters(_ effect: EffectNode) {
         guard let units = effectUnits else { return }
 
         switch effect.type {
+        case .compressor:
+            // AVAudioUnitDistortion used as compressor simulation
+            // (AVFoundation doesn't have a native compressor, using distortion with low settings)
+            break
+            
+        case .equalizer:
+            if let eq = units.equalizer {
+                eq.bands[0].gain = effect.parameters["bass"] ?? 0
+                eq.bands[1].gain = effect.parameters["mid"] ?? 0
+                eq.bands[2].gain = effect.parameters["treble"] ?? 0
+            }
+            
+        case .overdrive:
+            units.overdrive.wetDryMix = effect.parameters["level"] ?? 50
+            
         case .distortion:
-            units.distortion.wetDryMix = effect.parameters["mix"] ?? 50
+            units.distortion.wetDryMix = effect.parameters["level"] ?? 50
+            
+        case .fuzz:
+            units.fuzz.wetDryMix = effect.parameters["level"] ?? 50
+            
+        case .chorus:
+            // Using delay with short time to simulate chorus
+            break
+            
+        case .phaser:
+            // Simulated through distortion preset
+            break
+            
+        case .flanger:
+            // Simulated through delay with feedback
+            break
+            
+        case .tremolo:
+            // Simulated through volume modulation
+            break
 
         case .delay:
             units.delay.delayTime = TimeInterval(effect.parameters["time"] ?? 0.3)
@@ -483,40 +524,36 @@ final class AudioEngineManager: AudioManaging {
 
         case .reverb:
             units.reverb.wetDryMix = effect.parameters["wetDryMix"] ?? 40
-
-        case .equalizer:
-            if let eq = units.equalizer {
-                eq.bands[0].gain = effect.parameters["bass"] ?? 0
-                eq.bands[1].gain = effect.parameters["mid"] ?? 0
-                eq.bands[2].gain = effect.parameters["treble"] ?? 0
-            }
         }
     }
     
-    /// 同步所有效果器的 bypass 狀態
     /// Sync bypass state for all effects
     private func syncBypassStates() {
         guard let units = effectUnits else { return }
         
-        for effect in effectsChain {
-            switch effect.type {
-            case .distortion:
-                units.distortion.bypass = !effect.isEnabled
-            case .delay:
-                units.delay.bypass = !effect.isEnabled
-            case .reverb:
-                units.reverb.bypass = !effect.isEnabled
-            case .equalizer:
-                units.equalizer?.bypass = !effect.isEnabled
-            }
+        // Create a set of enabled effect types
+        var enabledTypes = Set<EffectType>()
+        for effect in effectsChain where effect.isEnabled {
+            enabledTypes.insert(effect.type)
         }
+        
+        // Set bypass for all effect units
+        units.compressor.bypass = !enabledTypes.contains(.compressor)
+        units.overdrive.bypass = !enabledTypes.contains(.overdrive)
+        units.distortion.bypass = !enabledTypes.contains(.distortion)
+        units.fuzz.bypass = !enabledTypes.contains(.fuzz)
+        units.chorus.bypass = !enabledTypes.contains(.chorus)
+        units.phaser.bypass = !enabledTypes.contains(.phaser)
+        units.flanger.bypass = !enabledTypes.contains(.flanger)
+        units.tremolo.bypass = !enabledTypes.contains(.tremolo)
+        units.delay.bypass = !enabledTypes.contains(.delay)
+        units.reverb.bypass = !enabledTypes.contains(.reverb)
+        units.equalizer?.bypass = !enabledTypes.contains(.equalizer)
         
         print("syncBypassStates: Bypass states synchronized")
     }
 
     // MARK: - Simulated Visualization
-    // 使用模擬數據展示可視化效果
-    // Use simulated data for visualization display
     
     private var visualizationPhase: Float = 0
     
@@ -584,38 +621,131 @@ final class AudioEngineManager: AudioManaging {
 }
 
 // MARK: - Effect Units Container
+// Following Clean Architecture: Infrastructure Layer
 // Following Single Responsibility: Only manages audio unit instances
 
 private final class EffectUnitsContainer {
+    // Dynamics
+    let compressor: AVAudioUnitDistortion
+    
+    // Filter & Pitch
+    let equalizer: AVAudioUnitEQ?
+    
+    // Gain / Dirt (using different distortion presets)
+    let overdrive: AVAudioUnitDistortion
     let distortion: AVAudioUnitDistortion
+    let fuzz: AVAudioUnitDistortion
+    
+    // Modulation (simulated using available units)
+    let chorus: AVAudioUnitDelay
+    let phaser: AVAudioUnitDistortion
+    let flanger: AVAudioUnitDelay
+    let tremolo: AVAudioUnitDistortion
+    
+    // Time & Ambience
     let delay: AVAudioUnitDelay
     let reverb: AVAudioUnitReverb
-    let equalizer: AVAudioUnitEQ?
 
     init() {
+        // Dynamics - Compressor (simulated with low distortion)
+        compressor = AVAudioUnitDistortion()
+        compressor.loadFactoryPreset(.speechWaves)
+        compressor.wetDryMix = 30
+        compressor.bypass = true
+        
+        // EQ
+        equalizer = AVAudioUnitEQ(numberOfBands: 3)
+        if let eq = equalizer {
+            eq.bands[0].filterType = .lowShelf
+            eq.bands[0].frequency = 100
+            eq.bands[0].bandwidth = 1.0
+            eq.bands[0].gain = 0
+            eq.bands[0].bypass = false
+            
+            eq.bands[1].filterType = .parametric
+            eq.bands[1].frequency = 1000
+            eq.bands[1].bandwidth = 1.0
+            eq.bands[1].gain = 0
+            eq.bands[1].bypass = false
+            
+            eq.bands[2].filterType = .highShelf
+            eq.bands[2].frequency = 4000
+            eq.bands[2].bandwidth = 1.0
+            eq.bands[2].gain = 0
+            eq.bands[2].bypass = false
+        }
+        
+        // Overdrive - soft clipping
+        overdrive = AVAudioUnitDistortion()
+        overdrive.loadFactoryPreset(.drumsLoFi)
+        overdrive.wetDryMix = 30
+        overdrive.bypass = true
+        
+        // Distortion - hard clipping
         distortion = AVAudioUnitDistortion()
         distortion.loadFactoryPreset(.drumsBitBrush)
         distortion.wetDryMix = 50
+        distortion.bypass = true
+        
+        // Fuzz - heavy saturation
+        fuzz = AVAudioUnitDistortion()
+        fuzz.loadFactoryPreset(.multiDistortedFunk)
+        fuzz.wetDryMix = 70
+        fuzz.bypass = true
+        
+        // Chorus (simulated with short delay)
+        chorus = AVAudioUnitDelay()
+        chorus.delayTime = 0.02  // 20ms for chorus effect
+        chorus.feedback = 20
+        chorus.wetDryMix = 40
+        chorus.bypass = true
+        
+        // Phaser (simulated)
+        phaser = AVAudioUnitDistortion()
+        phaser.loadFactoryPreset(.speechCosmicInterference)
+        phaser.wetDryMix = 50
+        phaser.bypass = true
+        
+        // Flanger (simulated with very short delay and high feedback)
+        flanger = AVAudioUnitDelay()
+        flanger.delayTime = 0.005  // 5ms for flanger
+        flanger.feedback = 60
+        flanger.wetDryMix = 50
+        flanger.bypass = true
+        
+        // Tremolo (simulated)
+        tremolo = AVAudioUnitDistortion()
+        tremolo.loadFactoryPreset(.speechGoldenPi)
+        tremolo.wetDryMix = 50
+        tremolo.bypass = true
 
+        // Delay
         delay = AVAudioUnitDelay()
         delay.delayTime = 0.3
         delay.feedback = 40
         delay.wetDryMix = 30
+        delay.bypass = true
 
+        // Reverb
         reverb = AVAudioUnitReverb()
         reverb.loadFactoryPreset(.mediumHall)
         reverb.wetDryMix = 40
-
-        // EQ is optional - create lazily if needed
-        equalizer = nil
+        reverb.bypass = true
     }
 
     func audioUnit(for type: EffectType) -> AVAudioUnit? {
         switch type {
+        case .compressor: return compressor
+        case .equalizer: return equalizer
+        case .overdrive: return overdrive
         case .distortion: return distortion
+        case .fuzz: return fuzz
+        case .chorus: return chorus
+        case .phaser: return phaser
+        case .flanger: return flanger
+        case .tremolo: return tremolo
         case .delay: return delay
         case .reverb: return reverb
-        case .equalizer: return equalizer
         }
     }
 }
