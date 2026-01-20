@@ -67,12 +67,33 @@ RiffNode follows **Clean Architecture** principles with **SOLID** design pattern
 +----------------------------------------------------------+
 ```
 
+### SOLID Principles
+
+- **Single Responsibility** - Each class/struct has one job
+  - `EffectGuideService`: Only provides effect guide data
+  - `EffectCardView`: Only renders effect card UI
+  
+- **Open/Closed** - Open for extension, closed for modification
+  - New effect categories can be added without modifying existing code
+  - Factory pattern for creating complex objects
+  
+- **Liskov Substitution** - Derived types are substitutable
+  - All `EffectInfoProviding` implementations can be used interchangeably
+  
+- **Interface Segregation** - Protocols split by responsibility
+  - `AudioEngineProtocol`, `EffectsChainManaging`, `AudioVisualizationProviding`
+  - Small, focused protocols for specific concerns
+  
+- **Dependency Inversion** - Depend on abstractions
+  - Views depend on protocols, not concrete implementations
+  - `EffectGuideView` accepts any `EffectGuideServiceProtocol`
+
 ### Key Design Patterns
 
-- **Interface Segregation** - Protocols split by responsibility
 - **Dependency Injection** - ViewModels receive dependencies
 - **Observable Pattern** - Using Swift's `@Observable` macro
 - **Composition over Inheritance** - Effect units container
+- **Factory Pattern** - For creating complex category objects
 
 ---
 
@@ -134,6 +155,9 @@ RiffNode.swiftpm/
 ├── ContentView.swift        # Main view & setup wizard
 ├── AudioEngine.swift        # Core audio processing
 ├── EffectsChainView.swift   # Effects pedal board UI
+├── EffectGuideView.swift    # Educational effect guide (Presentation Layer)
+├── EffectGuideData.swift    # Effect guide data & service (Data Layer)
+├── ParametricEQView.swift   # Parametric equalizer UI
 ├── BackingTrackView.swift   # Tape deck interface
 ├── WaveformView.swift       # Audio visualization
 ├── ViewModels.swift         # Presentation logic
@@ -158,6 +182,18 @@ This project was built for the **Apple Swift Student Challenge 2026**, showcasin
 ---
 
 ## Changelog
+
+### v1.2.0 (2026-01-20)
+- Refactored Effect Guide to follow Clean Architecture and SOLID principles
+- Separated Data Layer (`EffectGuideData.swift`) from Presentation Layer (`EffectGuideView.swift`)
+- Added protocols for Interface Segregation and Dependency Inversion
+- Factory pattern for creating complex category objects
+
+### v1.1.0 (2026-01-20)
+- Added comprehensive Effect Pedal Guide with 6 categories and 20+ effects
+- Added Parametric EQ with draggable bands and frequency response curve
+- Backing track improvements with format conversion support
+- Fixed audio engine stability issues
 
 ### v1.0.0 (2026-01-20)
 - Initial release
