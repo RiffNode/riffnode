@@ -20,12 +20,12 @@ enum EffectCategory: String, CaseIterable, Identifiable, Sendable {
     
     var icon: String {
         switch self {
-        // Clean, minimal SF Symbols for categories
-        case .dynamics: return "gauge.with.needle"
-        case .filterPitch: return "slider.horizontal.3"
-        case .gainDirt: return "waveform.path.ecg"
-        case .modulation: return "waveform.circle"
-        case .timeAmbience: return "timer"
+        // Simple category indicators
+        case .dynamics: return "d.circle"
+        case .filterPitch: return "f.circle"
+        case .gainDirt: return "g.circle"
+        case .modulation: return "m.circle"
+        case .timeAmbience: return "t.circle"
         }
     }
     
@@ -102,18 +102,35 @@ enum EffectType: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var icon: String {
         switch self {
-        // Using minimal, audio-relevant SF Symbols only
-        case .compressor: return "gauge.with.needle"
-        case .equalizer: return "slider.horizontal.3"
-        case .overdrive: return "waveform.path.ecg"
-        case .distortion: return "waveform.badge.exclamationmark"
-        case .fuzz: return "waveform"
-        case .chorus: return "waveform.circle"
-        case .phaser: return "waveform.and.magnifyingglass"
-        case .flanger: return "waveform.path.ecg.rectangle"
-        case .tremolo: return "waveform.path"
-        case .delay: return "timer"
-        case .reverb: return "waveform.badge.plus"
+        // Simple, clean icons
+        case .compressor: return "c.circle.fill"
+        case .equalizer: return "e.circle.fill"
+        case .overdrive: return "o.circle.fill"
+        case .distortion: return "d.circle.fill"
+        case .fuzz: return "f.circle.fill"
+        case .chorus: return "c.circle.fill"
+        case .phaser: return "p.circle.fill"
+        case .flanger: return "f.circle.fill"
+        case .tremolo: return "t.circle.fill"
+        case .delay: return "d.circle.fill"
+        case .reverb: return "r.circle.fill"
+        }
+    }
+
+    /// Short abbreviation for the effect
+    var abbreviation: String {
+        switch self {
+        case .compressor: return "CMP"
+        case .equalizer: return "EQ"
+        case .overdrive: return "OD"
+        case .distortion: return "DST"
+        case .fuzz: return "FZ"
+        case .chorus: return "CHR"
+        case .phaser: return "PHS"
+        case .flanger: return "FLG"
+        case .tremolo: return "TRM"
+        case .delay: return "DLY"
+        case .reverb: return "REV"
         }
     }
 

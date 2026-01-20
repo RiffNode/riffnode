@@ -23,18 +23,14 @@ struct EffectsChainView: View {
                 // Add effect menu - organized by category
                 Menu {
                     ForEach(EffectCategory.allCases) { category in
-                        Menu {
+                        Menu(category.rawValue) {
                             ForEach(EffectType.effectTypes(for: category)) { type in
-                                Button {
+                                Button(type.rawValue) {
                                     withAnimation(.spring(duration: 0.3)) {
                                         engine.addEffect(type)
                                     }
-                                } label: {
-                                    Label(type.rawValue, systemImage: type.icon)
                                 }
                             }
-                        } label: {
-                            Label(category.rawValue, systemImage: category.icon)
                         }
                     }
                 } label: {
@@ -77,63 +73,91 @@ struct SignalChainView: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                // Input jack
-                JackView(label: "IN", isInput: true)
-
-                // Cable segment
-                CableView()
-
-                // Effect pedals
-                ForEach(Array(engine.effectsChain.enumerated()), id: \.element.id) { index, effect in
-                    PedalView(
-                        effect: effect,
-                        isSelected: selectedEffect?.id == effect.id,
-                        onTap: { selectedEffect = selectedEffect?.id == effect.id ? nil : effect },
-                        onDoubleTap: { engine.toggleEffect(effect) },
-                        onDelete: {
-                            withAnimation {
-                                if selectedEffect?.id == effect.id { selectedEffect = nil }
-                                engine.removeEffect(at: index)
-                            }
-                        }
-                    )
-                    .draggable(effect.id.uuidString) {
-                        PedalView(effect: effect, isSelected: false, onTap: {}, onDoubleTap: {}, onDelete: {})
-                            .opacity(0.7)
-                            .scaleEffect(0.9)
-                    }
-                    .dropDestination(for: String.self) { items, _ in
-                        guard let droppedId = items.first,
-                              let sourceIndex = engine.effectsChain.firstIndex(where: { $0.id.uuidString == droppedId }),
-                              sourceIndex != index else { return false }
-                        withAnimation(.spring(duration: 0.3)) {
-                            engine.moveEffect(from: IndexSet(integer: sourceIndex), to: index > sourceIndex ? index + 1 : index)
-                        }
-                        return true
-                    }
-
-                    CableView()
-                }
-
-                // Output jack
-                JackView(label: "OUT", isInput: false)
-            }
-            .padding(.vertical, 20)
-            .padding(.horizontal)
+            signalChainContent
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.3))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                )
+        .background(signalChainBackground)
+    }
+
+    private var signalChainContent: some View {
+        HStack(spacing: 0) {
+            JackView(label: "IN", isInput: true)
+            CableView()
+
+            ForEach(Array(engine.effectsChain.enumerated()), id: \.element.id) { index, effect in
+                pedalWithDragDrop(effect: effect, index: index)
+                CableView()
+            }
+
+            JackView(label: "OUT", isInput: false)
+        }
+        .padding(.vertical, 20)
+        .padding(.horizontal)
+    }
+
+    private func pedalWithDragDrop(effect: EffectNode, index: Int) -> some View {
+        let isCurrentlySelected = selectedEffect?.id == effect.id
+
+        return PedalView(
+            effect: effect,
+            isSelected: isCurrentlySelected,
+            onTap: { handleTap(effect: effect) },
+            onDoubleTap: { engine.toggleEffect(effect) },
+            onDelete: { handleDelete(effect: effect, index: index) }
         )
+        .draggable(effect.id.uuidString) {
+            dragPreview(for: effect)
+        }
+        .dropDestination(for: String.self) { items, _ in
+            return handleDrop(items: items, targetIndex: index)
+        }
+    }
+
+    private func handleTap(effect: EffectNode) {
+        if selectedEffect?.id == effect.id {
+            selectedEffect = nil
+        } else {
+            selectedEffect = effect
+        }
+    }
+
+    private func handleDelete(effect: EffectNode, index: Int) {
+        withAnimation {
+            if selectedEffect?.id == effect.id {
+                selectedEffect = nil
+            }
+            engine.removeEffect(at: index)
+        }
+    }
+
+    private func dragPreview(for effect: EffectNode) -> some View {
+        PedalView(effect: effect, isSelected: false, onTap: {}, onDoubleTap: {}, onDelete: {})
+            .opacity(0.7)
+            .scaleEffect(0.9)
+    }
+
+    private func handleDrop(items: [String], targetIndex: Int) -> Bool {
+        guard let droppedId = items.first else { return false }
+        guard let sourceIndex = engine.effectsChain.firstIndex(where: { $0.id.uuidString == droppedId }) else { return false }
+        guard sourceIndex != targetIndex else { return false }
+
+        let destination = targetIndex > sourceIndex ? targetIndex + 1 : targetIndex
+        withAnimation(.spring(duration: 0.3)) {
+            engine.moveEffect(from: IndexSet(integer: sourceIndex), to: destination)
+        }
+        return true
+    }
+
+    private var signalChainBackground: some View {
+        RoundedRectangle(cornerRadius: 16)
+            .fill(Color.black.opacity(0.3))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+            )
     }
 }
 
-// MARK: - Pedal View (Classic Guitar Pedal Style)
+// MARK: - Pedal View (Clean Guitar Pedal Style)
 
 struct PedalView: View {
     let effect: EffectNode
@@ -148,13 +172,13 @@ struct PedalView: View {
         VStack(spacing: 0) {
             // Pedal body
             ZStack {
-                // Metal enclosure with gradient
+                // Metal enclosure
                 RoundedRectangle(cornerRadius: 8)
                     .fill(
                         LinearGradient(
                             colors: effect.isEnabled
-                                ? [effect.type.color, effect.type.color.opacity(0.7)]
-                                : [Color.gray.opacity(0.6), Color.gray.opacity(0.4)],
+                                ? [effect.type.color.opacity(0.9), effect.type.color.opacity(0.6)]
+                                : [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -162,46 +186,47 @@ struct PedalView: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(
-                                isSelected ? Color.white : Color.black.opacity(0.3),
+                                isSelected ? Color.white : Color.black.opacity(0.4),
                                 lineWidth: isSelected ? 2 : 1
                             )
                     )
-                    .shadow(color: effect.isEnabled ? effect.type.color.opacity(0.5) : .clear, radius: isSelected ? 10 : 5)
+                    .shadow(color: effect.isEnabled ? effect.type.color.opacity(0.4) : .clear, radius: isSelected ? 8 : 4)
 
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     // LED indicator
                     Circle()
-                        .fill(effect.isEnabled ? Color.green : Color.red.opacity(0.5))
-                        .frame(width: 8, height: 8)
-                        .shadow(color: effect.isEnabled ? .green : .clear, radius: 4)
+                        .fill(effect.isEnabled ? Color.green : Color.red.opacity(0.4))
+                        .frame(width: 6, height: 6)
+                        .shadow(color: effect.isEnabled ? .green : .clear, radius: 3)
 
-                    // Effect icon
-                    Image(systemName: effect.type.icon)
-                        .font(.system(size: 24, weight: .medium))
+                    // Effect abbreviation (clean text, no icons)
+                    Text(effect.type.abbreviation)
+                        .font(.system(size: 18, weight: .bold, design: .monospaced))
                         .foregroundStyle(.white)
 
-                    // Effect name
-                    Text(effect.type.rawValue.uppercased())
-                        .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.9))
+                    // Full effect name
+                    Text(effect.type.rawValue)
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
 
                     // Footswitch
                     Circle()
                         .fill(
                             RadialGradient(
-                                colors: [Color.gray.opacity(0.8), Color.gray.opacity(0.4)],
+                                colors: [Color.gray.opacity(0.7), Color.gray.opacity(0.3)],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: 15
+                                endRadius: 12
                             )
                         )
-                        .frame(width: 30, height: 30)
+                        .frame(width: 26, height: 26)
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.black.opacity(0.5), lineWidth: 2)
+                                .strokeBorder(Color.black.opacity(0.4), lineWidth: 1.5)
                         )
                 }
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
 
                 // Delete button on hover
                 if isHovering {
@@ -210,21 +235,27 @@ struct PedalView: View {
                             Spacer()
                             Button(action: onDelete) {
                                 Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 14))
                                     .foregroundStyle(.white, .red)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(effect.type.rawValue) pedal")
                         }
                         Spacer()
                     }
                     .padding(4)
                 }
             }
-            .frame(width: 80, height: 120)
+            .frame(width: 75, height: 110)
             .onTapGesture(count: 2) { onDoubleTap() }
             .onTapGesture { onTap() }
             .onHover { isHovering = $0 }
         }
+        // Accessibility
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(effect.type.rawValue) pedal, \(effect.isEnabled ? "enabled" : "bypassed")")
+        .accessibilityHint("Tap to select, double-tap to toggle on or off")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -297,7 +328,8 @@ struct PedalControlsView: View {
         VStack(spacing: 16) {
             // Header
             HStack {
-                Image(systemName: effect.type.icon)
+                Text(effect.type.abbreviation)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(effect.type.color)
                 Text(effect.type.rawValue)
                     .font(.headline)
@@ -668,6 +700,22 @@ struct KnobView: View {
                 Text(String(format: format, value))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(color)
+            }
+        }
+        // Accessibility
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label)")
+        .accessibilityValue(String(format: format, value))
+        .accessibilityHint("Drag up to increase, down to decrease")
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) * 0.05
+            switch direction {
+            case .increment:
+                value = min(value + step, range.upperBound)
+            case .decrement:
+                value = max(value - step, range.lowerBound)
+            @unknown default:
+                break
             }
         }
     }

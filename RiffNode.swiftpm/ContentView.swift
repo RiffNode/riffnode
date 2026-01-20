@@ -12,7 +12,13 @@ struct ContentView: View {
 
     // MARK: - State
 
-    @State private var hasCompletedSetup = false
+    enum AppState {
+        case welcome
+        case guidedTour
+        case main
+    }
+
+    @State private var appState: AppState = .welcome
 
     // MARK: - Body
 
@@ -20,19 +26,33 @@ struct ContentView: View {
         ZStack {
             BackgroundView()
 
-            if hasCompletedSetup {
+            switch appState {
+            case .welcome:
+                WelcomeView(
+                    engine: engine,
+                    onStartTour: {
+                        withAnimation(.spring(duration: 0.5)) {
+                            appState = .guidedTour
+                        }
+                    },
+                    onSkipToMain: {
+                        withAnimation(.spring(duration: 0.5)) {
+                            appState = .main
+                        }
+                    }
+                )
+
+            case .guidedTour:
+                GuidedTourView(engine: engine) {
+                    withAnimation(.spring(duration: 0.5)) {
+                        appState = .main
+                    }
+                }
+
+            case .main:
                 MainInterfaceView(
                     engine: engine,
                     presetService: presetService
-                )
-            } else {
-                WelcomeView(
-                    engine: engine,
-                    onComplete: {
-                        withAnimation(.spring(duration: 0.5)) {
-                            hasCompletedSetup = true
-                        }
-                    }
                 )
             }
         }
@@ -88,233 +108,201 @@ struct BackgroundView: View {
 
 struct WelcomeView: View {
     @Bindable var engine: AudioEngineManager
-    let onComplete: () -> Void
+    let onStartTour: () -> Void
+    let onSkipToMain: () -> Void
 
     @State private var viewModel: SetupViewModel?
-    @State private var logoScale: CGFloat = 0.5
-    @State private var logoOpacity: Double = 0
-    @Namespace private var namespace
+    @State private var showContent = false
+    @State private var setupComplete = false
 
     var body: some View {
-        GlassEffectContainer(spacing: 24) {
-            VStack(spacing: 40) {
-                Spacer()
+        VStack(spacing: 24) {
+            Spacer()
 
-                LogoView(scale: logoScale, opacity: logoOpacity)
-                    .onAppear {
-                        withAnimation(.spring(duration: 0.8)) {
-                            logoScale = 1.0
-                            logoOpacity = 1.0
-                        }
-                    }
-
-                Spacer()
-
-                if let vm = viewModel {
-                    SetupStepsView(viewModel: vm)
-                }
-
-                Spacer()
-
-                SetupActionButton(viewModel: viewModel, onComplete: onComplete)
-
-                if let error = viewModel?.errorMessage {
-                    ErrorMessageView(message: error)
-                }
-
-                Spacer()
-            }
-            .padding()
-        }
-        .onAppear {
-            viewModel = SetupViewModel(audioEngine: engine)
-        }
-    }
-}
-
-// MARK: - Logo View
-
-struct LogoView: View {
-    let scale: CGFloat
-    let opacity: Double
-
-    var body: some View {
-        VStack(spacing: 20) {
-            // Logo with glow effects
-            ZStack {
-                // Outer glow
-                Circle()
-                    .fill(.cyan.opacity(0.15))
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 30)
-
-                Circle()
-                    .fill(.purple.opacity(0.2))
-                    .frame(width: 100, height: 100)
-                    .blur(radius: 20)
-
-                Image(systemName: "guitars.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.cyan, .purple, .pink],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .symbolEffect(.pulse)
-            }
-            .scaleEffect(scale)
-            .opacity(opacity)
-
-            VStack(spacing: 8) {
+            // App title and story
+            VStack(spacing: 20) {
                 Text("RiffNode")
                     .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, .cyan.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .foregroundStyle(.white)
 
-                Text("Your Visual Guitar Effects Playground")
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-}
+                Text("Your Guitar Effects Playground")
+                    .font(.title2)
+                    .foregroundStyle(.cyan)
 
-// MARK: - Setup Steps View
+                // Story/narrative
+                VStack(spacing: 12) {
+                    Text("Ever wondered how guitarists create those iconic sounds?")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
 
-struct SetupStepsView: View {
-    @Bindable var viewModel: SetupViewModel
-    @Namespace private var glassNamespace
-
-    var body: some View {
-        GlassEffectContainer(spacing: 16) {
-            VStack(spacing: 16) {
-                ForEach([SetupViewModel.SetupStep.permission, .engine, .ready], id: \.rawValue) { step in
-                    SetupStepRow(
-                        step: step,
-                        status: viewModel.stepStatus(for: step)
-                    )
+                    Text("From the crunchy distortion of rock legends to the ethereal reverbs of ambient music - it all starts with understanding effects pedals.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .multilineTextAlignment(.center)
                 }
+                .padding(.horizontal, 60)
+                .padding(.top, 8)
             }
-            .padding(.horizontal, 60)
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 20)
+
+            Spacer()
+
+            // Setup steps
+            if let vm = viewModel {
+                VStack(spacing: 12) {
+                    ForEach([SetupViewModel.SetupStep.permission, .engine, .ready], id: \.rawValue) { step in
+                        SimpleSetupStepRow(
+                            step: step,
+                            status: vm.stepStatus(for: step)
+                        )
+                    }
+                }
+                .padding(.horizontal, 60)
+                .opacity(showContent ? 1 : 0)
+            }
+
+            Spacer()
+
+            // Action buttons
+            if setupComplete {
+                // Show tour options after setup
+                VStack(spacing: 16) {
+                    Button {
+                        onStartTour()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "book.fill")
+                            Text("Take the 3-Minute Tour")
+                        }
+                        .font(.headline)
+                        .frame(width: 260)
+                        .padding(.vertical, 14)
+                        .background(Color.cyan)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        onSkipToMain()
+                    } label: {
+                        Text("Skip to App")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else {
+                // Setup button
+                Button {
+                    Task {
+                        await viewModel?.performNextStep()
+                        if viewModel?.currentStep == .ready {
+                            withAnimation(.spring(duration: 0.4)) {
+                                setupComplete = true
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if viewModel?.isLoading == true {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        }
+                        Text(viewModel?.buttonTitle ?? "Continue")
+                            .font(.headline)
+                    }
+                    .frame(width: 200)
+                    .padding(.vertical, 14)
+                    .background(Color.cyan)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel?.isLoading == true)
+            }
+
+            if let error = viewModel?.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            Spacer()
+        }
+        .padding()
+        .onAppear {
+            viewModel = SetupViewModel(audioEngine: engine)
+            withAnimation(.easeOut(duration: 0.5)) {
+                showContent = true
+            }
         }
     }
 }
 
-// MARK: - Setup Step Row
+// MARK: - Simple Setup Step Row
 
-struct SetupStepRow: View {
+struct SimpleSetupStepRow: View {
     let step: SetupViewModel.SetupStep
     let status: SetupViewModel.StepStatus
 
     var body: some View {
         HStack(spacing: 16) {
-            StepIndicator(icon: step.icon, status: status)
+            // Status indicator
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.2))
+                    .frame(width: 36, height: 36)
 
-            VStack(alignment: .leading, spacing: 4) {
+                if status == .completed {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.green)
+                } else if status == .active {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.cyan)
+                } else {
+                    Image(systemName: step.icon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(step.title)
-                    .font(.headline)
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(status == .pending ? .secondary : .primary)
 
                 Text(step.description)
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
-
-            if status == .active {
-                Circle()
-                    .fill(.cyan)
-                    .frame(width: 8, height: 8)
-            }
         }
-        .padding()
-        .glassEffect(.regular.tint(status == .active ? .cyan : .clear), in: .rect(cornerRadius: 16))
-        .animation(.spring(duration: 0.3), value: status)
-    }
-}
-
-// MARK: - Step Indicator
-
-struct StepIndicator: View {
-    let icon: String
-    let status: SetupViewModel.StepStatus
-
-    var body: some View {
-        ZStack {
-            if status == .completed {
-                Image(systemName: "checkmark")
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-            } else {
-                Image(systemName: icon)
-                    .font(.title2)
-                    .foregroundStyle(status == .active ? .white : .secondary)
-            }
-        }
-        .frame(width: 44, height: 44)
-        .glassEffect(
-            .regular.tint(status == .completed ? .green : (status == .active ? .cyan : .clear)),
-            in: .circle
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(status == .active ? 0.1 : 0.05))
         )
     }
-}
 
-// MARK: - Setup Action Button
-
-struct SetupActionButton: View {
-    let viewModel: SetupViewModel?
-    let onComplete: () -> Void
-
-    var body: some View {
-        Button {
-            Task {
-                if viewModel?.currentStep == .ready {
-                    onComplete()
-                } else {
-                    await viewModel?.performNextStep()
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                if viewModel?.isLoading == true {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-                Text(viewModel?.buttonTitle ?? "Continue")
-                    .font(.headline)
-            }
-            .frame(width: 200)
-            .padding(.vertical, 16)
+    private var statusColor: Color {
+        switch status {
+        case .pending: return .gray
+        case .active: return .cyan
+        case .completed: return .green
         }
-        .buttonStyle(.glassProminent)
-        .disabled(viewModel?.isLoading == true)
-        .scaleEffect(viewModel?.isLoading == true ? 0.98 : 1.0)
-        .animation(.default, value: viewModel?.isLoading)
     }
 }
 
-// MARK: - Error Message View
-
-struct ErrorMessageView: View {
-    let message: String
-
-    var body: some View {
-        Text(message)
-            .font(.caption)
-            .foregroundStyle(.red)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal)
-            .transition(.opacity)
-    }
-}
 
 // MARK: - Main Interface View
 
@@ -612,9 +600,9 @@ struct PresetCardView: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Image(systemName: preset.icon)
-                        .font(.title2)
-                        .foregroundStyle(preset.category.color)
+                    Text(preset.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
 
                     Spacer()
 
@@ -627,26 +615,21 @@ struct PresetCardView: View {
                         .clipShape(Capsule())
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(preset.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                Text(preset.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
 
-                    Text(preset.description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-
-                // Effect chain preview
+                // Effect chain preview - using abbreviations
                 HStack(spacing: 4) {
                     ForEach(Array(preset.effects.enumerated()), id: \.offset) { _, effect in
-                        Image(systemName: effect.type.icon)
-                            .font(.caption)
+                        Text(effect.type.abbreviation)
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundStyle(effect.type.color)
-                            .padding(6)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
                             .background(effect.type.color.opacity(0.2))
-                            .clipShape(Circle())
+                            .clipShape(Capsule())
                     }
                 }
             }

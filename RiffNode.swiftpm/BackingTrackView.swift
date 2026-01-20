@@ -76,12 +76,10 @@ struct BackingTrackView: View {
     // MARK: - Private Methods
 
     private func startReelAnimation() {
-        rotationTimer?.invalidate()
-        rotationTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [self] _ in
-            Task { @MainActor in
-                withAnimation(.linear(duration: 0.03)) {
-                    reelRotation += 2
-                }
+        stopReelAnimation()
+        rotationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+            DispatchQueue.main.async {
+                self.reelRotation += 3
             }
         }
     }
@@ -94,31 +92,39 @@ struct BackingTrackView: View {
     private func handleFileImport(_ result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
-            guard let url = urls.first else { return }
+            guard let url = urls.first else {
+                print("No file selected")
+                return
+            }
 
             isLoading = true
-            loadedTrackName = url.lastPathComponent
+            let trackName = url.lastPathComponent
+            loadedTrackName = trackName
 
-            Task {
+            Task { @MainActor in
                 do {
-                    let accessing = url.startAccessingSecurityScopedResource()
-                    defer {
-                        if accessing {
-                            url.stopAccessingSecurityScopedResource()
-                        }
+                    // Start accessing the security-scoped resource
+                    let didStartAccessing = url.startAccessingSecurityScopedResource()
+
+                    // Load the track
+                    try await engine.loadBackingTrack(url: url)
+
+                    // Stop accessing after load completes
+                    if didStartAccessing {
+                        url.stopAccessingSecurityScopedResource()
                     }
 
-                    try await engine.loadBackingTrack(url: url)
                     isLoading = false
+                    print("Successfully loaded: \(trackName)")
                 } catch {
                     isLoading = false
                     loadedTrackName = nil
-                    print("Failed to load backing track: \(error)")
+                    print("Failed to load backing track: \(error.localizedDescription)")
                 }
             }
 
         case .failure(let error):
-            print("File import failed: \(error)")
+            print("File import cancelled or failed: \(error.localizedDescription)")
         }
     }
 }

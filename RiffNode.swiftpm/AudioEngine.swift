@@ -89,21 +89,37 @@ final class AudioEngineManager: AudioManaging {
             hasPermission = false
         }
         #else
-        let session = AVAudioSession.sharedInstance()
-        switch session.recordPermission {
-        case .granted:
-            hasPermission = true
-        case .undetermined:
-            hasPermission = await withCheckedContinuation { continuation in
-                session.requestRecordPermission { granted in
-                    continuation.resume(returning: granted)
-                }
+        // Use modern AVAudioApplication API for iOS 17+
+        if #available(iOS 17.0, *) {
+            switch AVAudioApplication.shared.recordPermission {
+            case .granted:
+                hasPermission = true
+            case .undetermined:
+                hasPermission = await AVAudioApplication.requestRecordPermission()
+            case .denied:
+                hasPermission = false
+                errorMessage = "Microphone access denied. Please enable in Settings > Privacy > Microphone."
+            @unknown default:
+                hasPermission = false
             }
-        case .denied:
-            hasPermission = false
-            errorMessage = "Microphone access denied. Please enable in Settings > Privacy > Microphone."
-        @unknown default:
-            hasPermission = false
+        } else {
+            // Fallback for older iOS versions
+            let session = AVAudioSession.sharedInstance()
+            switch session.recordPermission {
+            case .granted:
+                hasPermission = true
+            case .undetermined:
+                hasPermission = await withCheckedContinuation { continuation in
+                    session.requestRecordPermission { granted in
+                        continuation.resume(returning: granted)
+                    }
+                }
+            case .denied:
+                hasPermission = false
+                errorMessage = "Microphone access denied. Please enable in Settings > Privacy > Microphone."
+            @unknown default:
+                hasPermission = false
+            }
         }
         #endif
     }
