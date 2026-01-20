@@ -146,6 +146,12 @@ final class AudioEngineManager: AudioManaging {
         engine.attach(units.distortion)
         engine.attach(units.delay)
         engine.attach(units.reverb)
+        
+        // 創建並附加伴奏播放器
+        // Create and attach backing track player
+        let player = AVAudioPlayerNode()
+        backingTrackPlayer = player
+        engine.attach(player)
 
         // 使用標準處理格式（立體聲 44.1kHz/48kHz）來避免格式不匹配
         // Use a standard processing format to avoid format mismatch issues
@@ -162,6 +168,13 @@ final class AudioEngineManager: AudioManaging {
 
         // Connect signal chain with format converter
         connectSignalChain(engine: engine, input: input, converter: converter, inputFormat: inputFormat, processingFormat: format)
+        
+        // 連接伴奏播放器到混音器
+        // Connect backing track player to mixer
+        if let mixer = mainMixer {
+            engine.connect(player, to: mixer, format: format)
+            print("setupEngine: Backing track player connected")
+        }
 
         // 根據效果鏈設置 bypass 狀態
         // Set bypass state based on effects chain
@@ -284,26 +297,41 @@ final class AudioEngineManager: AudioManaging {
     // MARK: - BackingTrackManaging Implementation
 
     func loadBackingTrack(url: URL) async throws {
+        print("loadBackingTrack: Loading \(url.lastPathComponent)")
+        
         let file = try AVAudioFile(forReading: url)
-        let format = file.processingFormat
+        let fileFormat = file.processingFormat
         let frameCount = AVAudioFrameCount(file.length)
+        
+        print("loadBackingTrack: File format: \(fileFormat.sampleRate)Hz, \(fileFormat.channelCount)ch")
 
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount) else {
             throw AudioEngineError.bufferCreationFailed
         }
 
         try file.read(into: buffer)
         backingTrackBuffer = buffer
+        
+        print("loadBackingTrack: Loaded \(frameCount) frames")
     }
 
     func playBackingTrack() {
         guard let player = backingTrackPlayer,
-              let buffer = backingTrackBuffer else { return }
+              let buffer = backingTrackBuffer else {
+            print("playBackingTrack: Player or buffer not available")
+            return
+        }
 
+        // 停止任何正在播放的內容
+        // Stop any currently playing content
+        player.stop()
+        
         player.scheduleBuffer(buffer, at: nil, options: .loops)
         player.volume = backingTrackVolume
         player.play()
         isBackingTrackPlaying = true
+        
+        print("playBackingTrack: Started playing")
     }
 
     func stopBackingTrack() {
