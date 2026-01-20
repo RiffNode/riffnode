@@ -1,13 +1,10 @@
 import SwiftUI
 
 // MARK: - Effect Guide View
-// Following Clean Architecture: View Layer (Presentation)
-// Following Single Responsibility: Only handles UI rendering
-// Following Dependency Inversion: Depends on protocol, not concrete implementation
 
 struct EffectGuideView: View {
     
-    // MARK: - Dependencies (Dependency Injection)
+    // MARK: - Dependencies
     
     private let guideService: EffectGuideServiceProtocol
     
@@ -15,7 +12,6 @@ struct EffectGuideView: View {
     
     @State private var selectedCategoryIndex: Int = 0
     @State private var expandedEffectId: UUID? = nil
-    @Namespace private var guideNamespace
     
     // MARK: - Initialization
     
@@ -42,8 +38,7 @@ struct EffectGuideView: View {
             
             CategorySelectorView(
                 categories: categories,
-                selectedIndex: $selectedCategoryIndex,
-                namespace: guideNamespace
+                selectedIndex: $selectedCategoryIndex
             )
             
             if let category = selectedCategory {
@@ -63,23 +58,22 @@ struct EffectGuideView: View {
 
 struct GuideHeaderView: View {
     var body: some View {
-        GlassEffectContainer(spacing: 12) {
-            VStack(spacing: 8) {
-                HStack {
-                    Image(systemName: "text.book.closed")
-                        .foregroundStyle(.cyan)
-                    Text("EFFECT GUIDE")
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    Spacer()
-                }
-                
-                Text("Learn about guitar effects and how to use them in your signal chain")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "book.fill")
+                    .foregroundStyle(.yellow)
+                Text("EFFECT PEDAL GUIDE")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                Spacer()
             }
-            .padding()
+            
+            Text("Learn about different types of guitar effects and how to use them")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding()
+        .background(Color.black.opacity(0.3))
     }
 }
 
@@ -88,53 +82,52 @@ struct GuideHeaderView: View {
 struct CategorySelectorView: View {
     let categories: [any EffectCategoryProviding]
     @Binding var selectedIndex: Int
-    let namespace: Namespace.ID
     
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
-                        CategoryButton(
-                            category: category,
-                            isSelected: selectedIndex == index,
-                            namespace: namespace
-                        ) {
-                            withAnimation(.spring(duration: 0.3)) {
-                                selectedIndex = index
-                            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
+                    GuideCategoryButton(
+                        category: category,
+                        isSelected: selectedIndex == index
+                    ) {
+                        withAnimation(.spring(duration: 0.3)) {
+                            selectedIndex = index
                         }
                     }
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
             }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
         }
+        .background(Color.black.opacity(0.2))
     }
 }
 
-// MARK: - Category Button
+// MARK: - Guide Category Button
 
-struct CategoryButton: View {
+struct GuideCategoryButton: View {
     let category: any EffectCategoryProviding
     let isSelected: Bool
-    let namespace: Namespace.ID
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            Text(category.name)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .foregroundStyle(isSelected ? .white : .secondary)
+            HStack(spacing: 6) {
+                Image(systemName: category.icon)
+                    .font(.system(size: 12))
+                Text(category.name)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? category.color : Color.gray.opacity(0.3))
+            )
+            .foregroundStyle(isSelected ? .black : .white)
         }
         .buttonStyle(.plain)
-        .glassEffect(
-            isSelected ? .regular.tint(category.color).interactive() : .regular,
-            in: .capsule
-        )
-        .glassEffectID("category-\(category.name)", in: namespace)
     }
 }
 
@@ -145,13 +138,17 @@ struct CategoryDescriptionView: View {
     
     var body: some View {
         HStack(spacing: 12) {
+            Image(systemName: category.icon)
+                .font(.title2)
+                .foregroundStyle(category.color)
+            
             Text(category.description)
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(category.color.opacity(0.3)), in: .rect(cornerRadius: 0))
+        .background(category.color.opacity(0.1))
     }
 }
 
@@ -198,9 +195,16 @@ struct EffectCardView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .glassEffect(
-            isExpanded ? .regular.tint(effect.color.opacity(0.2)).interactive() : .regular.interactive(),
-            in: .rect(cornerRadius: 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(
+                            isExpanded ? effect.color.opacity(0.5) : Color.white.opacity(0.1),
+                            lineWidth: 1
+                        )
+                )
         )
         .animation(.spring(duration: 0.3), value: isExpanded)
     }
@@ -216,10 +220,14 @@ struct EffectCardHeader: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Color indicator
-                Circle()
-                    .fill(effect.color)
-                    .frame(width: 8, height: 8)
+                ZStack {
+                    Circle()
+                        .fill(effect.color.opacity(0.2))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: effect.icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(effect.color)
+                }
                 
                 Text(effect.name)
                     .font(.headline)
@@ -228,7 +236,6 @@ struct EffectCardHeader: View {
                 Spacer()
                 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
             .padding()
@@ -250,30 +257,35 @@ struct EffectCardDetails: View {
             EffectDetailRow(
                 title: "Function",
                 content: effect.function,
+                icon: "gearshape.fill",
                 color: .cyan
             )
             
             EffectDetailRow(
                 title: "Sound",
                 content: effect.sound,
+                icon: "speaker.wave.3.fill",
                 color: .green
             )
             
             EffectDetailRow(
                 title: "How to Use",
                 content: effect.howToUse,
+                icon: "hand.point.up.fill",
                 color: .yellow
             )
             
             EffectDetailRow(
                 title: "Signal Chain Position",
                 content: effect.signalChainPosition,
+                icon: "arrow.right.circle.fill",
                 color: .orange
             )
             
             EffectDetailRow(
                 title: "Famous Users",
                 content: effect.famousUsers,
+                icon: "star.fill",
                 color: .purple
             )
         }
@@ -286,18 +298,25 @@ struct EffectCardDetails: View {
 struct EffectDetailRow: View {
     let title: String
     let content: String
+    let icon: String
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.bold())
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
                 .foregroundStyle(color)
+                .frame(width: 20)
             
-            Text(content)
-                .font(.callout)
-                .foregroundStyle(.white.opacity(0.9))
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.bold())
+                    .foregroundStyle(color)
+                
+                Text(content)
+                    .font(.callout)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

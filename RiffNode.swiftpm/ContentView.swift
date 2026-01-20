@@ -140,38 +140,45 @@ struct LogoView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Clean, minimal logo
+            // Logo with glow effects
             ZStack {
+                // Outer glow
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.cyan.opacity(0.3), .purple.opacity(0.2)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 120, height: 120)
+                    .fill(.cyan.opacity(0.15))
+                    .frame(width: 140, height: 140)
                     .blur(radius: 30)
 
-                Image(systemName: "waveform.path")
-                    .font(.system(size: 56, weight: .light))
+                Circle()
+                    .fill(.purple.opacity(0.2))
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 20)
+
+                Image(systemName: "guitars.fill")
+                    .font(.system(size: 60))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [.cyan, .white],
+                            colors: [.cyan, .purple, .pink],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
+                    .symbolEffect(.pulse)
             }
             .scaleEffect(scale)
             .opacity(opacity)
 
             VStack(spacing: 8) {
                 Text("RiffNode")
-                    .font(.system(size: 48, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.white, .cyan.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
 
-                Text("Visual Guitar Effects Playground")
+                Text("Your Visual Guitar Effects Playground")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
@@ -318,7 +325,6 @@ struct MainInterfaceView: View {
     @State private var showingSettings = false
     @State private var showingPresets = false
     @State private var selectedTab: MainTab = .pedalboard
-    @Namespace private var tabNamespace
 
     enum MainTab: String, CaseIterable {
         case pedalboard = "Pedalboard"
@@ -357,26 +363,33 @@ struct MainInterfaceView: View {
 
                 // Right panel with tab switching
                 VStack(spacing: 0) {
-                    // Tab selector with Liquid Glass
-                    GlassEffectContainer(spacing: 8) {
-                        HStack(spacing: 4) {
-                            ForEach(MainTab.allCases, id: \.rawValue) { tab in
-                                TabButton(
-                                    tab: tab,
-                                    isSelected: selectedTab == tab,
-                                    namespace: tabNamespace
-                                ) {
-                                    withAnimation(.spring(duration: 0.3)) {
-                                        selectedTab = tab
-                                    }
+                    // Tab selector
+                    HStack(spacing: 0) {
+                        ForEach(MainTab.allCases, id: \.rawValue) { tab in
+                            Button {
+                                withAnimation(.spring(duration: 0.3)) {
+                                    selectedTab = tab
                                 }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: tab.icon)
+                                    Text(tab.rawValue)
+                                }
+                                .font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(
+                                    selectedTab == tab
+                                        ? Color.white.opacity(0.1)
+                                        : Color.clear
+                                )
+                                .foregroundStyle(selectedTab == tab ? .white : .secondary)
                             }
-                            Spacer()
+                            .buttonStyle(.plain)
                         }
-                        .padding(8)
+                        Spacer()
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .background(Color.black.opacity(0.2))
 
                     // Content based on selected tab
                     switch selectedTab {
@@ -403,98 +416,68 @@ struct MainInterfaceView: View {
     }
 }
 
-// MARK: - Tab Button
-
-struct TabButton: View {
-    let tab: MainInterfaceView.MainTab
-    let isSelected: Bool
-    let namespace: Namespace.ID
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: tab.icon)
-                Text(tab.rawValue)
-            }
-            .font(.system(size: 13, weight: .medium))
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .foregroundStyle(isSelected ? .white : .secondary)
-        }
-        .buttonStyle(.plain)
-        .glassEffect(
-            isSelected ? .regular.interactive() : .regular.tint(.clear),
-            in: .capsule
-        )
-        .glassEffectID(tab.rawValue, in: namespace)
-    }
-}
-
 // MARK: - Top Bar View
 
 struct TopBarView: View {
     @Bindable var engine: AudioEngineManager
     @Binding var showingSettings: Bool
     @Binding var showingPresets: Bool
-    @Namespace private var topBarNamespace
 
     var body: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 16) {
-                // Logo - minimal
-                HStack(spacing: 8) {
-                    Image(systemName: "waveform.path")
-                        .font(.title2)
-                        .foregroundStyle(.cyan)
+        HStack {
+            // Logo
+            HStack(spacing: 8) {
+                Image(systemName: "guitars.fill")
+                    .font(.title2)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.cyan, .purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
 
-                    Text("RiffNode")
-                        .font(.title3.bold())
-                }
-
-                Spacer()
-
-                // Action buttons with Liquid Glass
-                HStack(spacing: 8) {
-                    Button { showingPresets = true } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "square.stack.3d.up")
-                            Text("Presets")
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.glass)
-
-                    EngineStatusBadge(isRunning: engine.isRunning)
-
-                    // Play/Stop button
-                    Button {
-                        if engine.isRunning {
-                            engine.stop()
-                        } else {
-                            try? engine.start()
-                        }
-                    } label: {
-                        Image(systemName: engine.isRunning ? "stop.fill" : "play.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(engine.isRunning ? .red : .green)
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.glass)
-
-                    Button { showingSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 14))
-                            .frame(width: 36, height: 36)
-                    }
-                    .buttonStyle(.glass)
-                }
+                Text("RiffNode")
+                    .font(.title2.bold())
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+
+            Spacer()
+
+            // Presets button
+            Button { showingPresets = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "square.stack.3d.up.fill")
+                    Text("Presets")
+                }
+                .font(.system(size: 13, weight: .medium))
+            }
+            .buttonStyle(.bordered)
+
+            // Engine status
+            EngineStatusBadge(isRunning: engine.isRunning)
+
+            // Controls
+            HStack(spacing: 12) {
+                Button {
+                    if engine.isRunning {
+                        engine.stop()
+                    } else {
+                        try? engine.start()
+                    }
+                } label: {
+                    Image(systemName: engine.isRunning ? "stop.fill" : "play.fill")
+                        .foregroundStyle(engine.isRunning ? .red : .green)
+                }
+                .buttonStyle(.bordered)
+
+                Button { showingSettings = true } label: {
+                    Image(systemName: "gear")
+                }
+                .buttonStyle(.bordered)
+            }
         }
+        .padding()
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -506,16 +489,18 @@ struct EngineStatusBadge: View {
     var body: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(isRunning ? .green : .orange)
-                .frame(width: 6, height: 6)
+                .fill(isRunning ? .green : .red)
+                .frame(width: 8, height: 8)
+                .shadow(color: isRunning ? .green : .red, radius: 4)
 
             Text(isRunning ? "Running" : "Stopped")
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .glassEffect(in: .capsule)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
     }
 }
 
@@ -577,22 +562,21 @@ struct PresetCategoryFilterBar: View {
     @Binding var selectedCategory: EffectPreset.PresetCategory?
 
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    CategoryChip(title: "All", isSelected: selectedCategory == nil) {
-                        withAnimation { selectedCategory = nil }
-                    }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                CategoryChip(title: "All", isSelected: selectedCategory == nil) {
+                    withAnimation { selectedCategory = nil }
+                }
 
-                    ForEach(EffectPreset.PresetCategory.allCases, id: \.self) { category in
-                        CategoryChip(title: category.rawValue, isSelected: selectedCategory == category) {
-                            withAnimation { selectedCategory = category }
-                        }
+                ForEach(EffectPreset.PresetCategory.allCases, id: \.self) { category in
+                    CategoryChip(title: category.rawValue, isSelected: selectedCategory == category) {
+                        withAnimation { selectedCategory = category }
                     }
                 }
-                .padding()
             }
+            .padding()
         }
+        .background(.ultraThinMaterial)
     }
 }
 
@@ -609,13 +593,11 @@ struct CategoryChip: View {
                 .font(.system(size: 13, weight: .medium))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
+                .background(isSelected ? Color.cyan : Color.gray.opacity(0.2))
                 .foregroundStyle(isSelected ? .white : .secondary)
+                .clipShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassEffect(
-            isSelected ? .regular.tint(.cyan).interactive() : .regular,
-            in: .capsule
-        )
     }
 }
 
@@ -630,13 +612,19 @@ struct PresetCardView: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
+                    Image(systemName: preset.icon)
+                        .font(.title2)
+                        .foregroundStyle(preset.category.color)
+
+                    Spacer()
+
                     Text(preset.category.rawValue)
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .glassEffect(.regular.tint(preset.category.color), in: .capsule)
-
-                    Spacer()
+                        .background(preset.category.color.opacity(0.2))
+                        .foregroundStyle(preset.category.color)
+                        .clipShape(Capsule())
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -650,19 +638,29 @@ struct PresetCardView: View {
                         .lineLimit(2)
                 }
 
-                // Effect chain preview - simple dots
-                HStack(spacing: 6) {
+                // Effect chain preview
+                HStack(spacing: 4) {
                     ForEach(Array(preset.effects.enumerated()), id: \.offset) { _, effect in
-                        Circle()
-                            .fill(effect.type.color)
-                            .frame(width: 8, height: 8)
+                        Image(systemName: effect.type.icon)
+                            .font(.caption)
+                            .foregroundStyle(effect.type.color)
+                            .padding(6)
+                            .background(effect.type.color.opacity(0.2))
+                            .clipShape(Circle())
                     }
                 }
             }
             .padding()
-            .glassEffect(
-                isSelected ? .regular.tint(preset.category.color).interactive() : .regular.interactive(),
-                in: .rect(cornerRadius: 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(
+                                isSelected ? preset.category.color : Color.white.opacity(0.1),
+                                lineWidth: isSelected ? 2 : 1
+                            )
+                    )
             )
         }
         .buttonStyle(.plain)

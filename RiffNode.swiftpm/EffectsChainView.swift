@@ -1,60 +1,59 @@
 import SwiftUI
 
-// MARK: - Effects Chain View (Pedalboard Style with Liquid Glass)
+// MARK: - Effects Chain View (Pedalboard Style)
 
 struct EffectsChainView: View {
     @Bindable var engine: AudioEngineManager
     @State private var selectedEffect: EffectNode?
-    @Namespace private var effectsNamespace
 
     var body: some View {
         VStack(spacing: 16) {
             // Header
-            GlassEffectContainer(spacing: 12) {
-                HStack {
-                    HStack(spacing: 8) {
-                        Image(systemName: "cable.connector.horizontal")
-                            .foregroundStyle(.cyan)
-                        Text("SIGNAL CHAIN")
-                            .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.white)
-                    }
-
-                    Spacer()
-
-                    // Add effect menu - organized by category
-                    Menu {
-                        ForEach(EffectCategory.allCases) { category in
-                            Menu {
-                                ForEach(EffectType.effectTypes(for: category)) { type in
-                                    Button {
-                                        withAnimation(.spring(duration: 0.3)) {
-                                            engine.addEffect(type)
-                                        }
-                                    } label: {
-                                        Text(type.rawValue)
-                                    }
-                                }
-                            } label: {
-                                Label(category.rawValue, systemImage: category.icon)
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus")
-                            Text("Add Pedal")
-                        }
-                        .font(.system(size: 12, weight: .semibold))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.glassProminent)
+            HStack {
+                HStack(spacing: 8) {
+                    Image(systemName: "cable.connector.horizontal")
+                        .foregroundStyle(.orange)
+                    Text("PEDALBOARD")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white)
                 }
-                .padding(.horizontal)
+
+                Spacer()
+
+                // Add effect menu - organized by category
+                Menu {
+                    ForEach(EffectCategory.allCases) { category in
+                        Menu {
+                            ForEach(EffectType.effectTypes(for: category)) { type in
+                                Button {
+                                    withAnimation(.spring(duration: 0.3)) {
+                                        engine.addEffect(type)
+                                    }
+                                } label: {
+                                    Label(type.rawValue, systemImage: type.icon)
+                                }
+                            }
+                        } label: {
+                            Label(category.rawValue, systemImage: category.icon)
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                        Text("Add Pedal")
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.gradient)
+                    .foregroundStyle(.black)
+                    .clipShape(Capsule())
+                }
             }
+            .padding(.horizontal)
 
             // Signal chain visualization
-            SignalChainView(engine: engine, selectedEffect: $selectedEffect, namespace: effectsNamespace)
+            SignalChainView(engine: engine, selectedEffect: $selectedEffect)
 
             // Parameter controls for selected effect
             if let effect = selectedEffect {
@@ -75,68 +74,70 @@ struct EffectsChainView: View {
 struct SignalChainView: View {
     @Bindable var engine: AudioEngineManager
     @Binding var selectedEffect: EffectNode?
-    let namespace: Namespace.ID
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            GlassEffectContainer(spacing: 20) {
-                HStack(spacing: 0) {
-                    // Input jack
-                    JackView(label: "IN", isInput: true)
+            HStack(spacing: 0) {
+                // Input jack
+                JackView(label: "IN", isInput: true)
 
-                    // Cable segment
-                    CableView()
+                // Cable segment
+                CableView()
 
-                    // Effect pedals
-                    ForEach(Array(engine.effectsChain.enumerated()), id: \.element.id) { index, effect in
-                        PedalView(
-                            effect: effect,
-                            isSelected: selectedEffect?.id == effect.id,
-                            namespace: namespace,
-                            onTap: { selectedEffect = selectedEffect?.id == effect.id ? nil : effect },
-                            onDoubleTap: { engine.toggleEffect(effect) },
-                            onDelete: {
-                                withAnimation {
-                                    if selectedEffect?.id == effect.id { selectedEffect = nil }
-                                    engine.removeEffect(at: index)
-                                }
+                // Effect pedals
+                ForEach(Array(engine.effectsChain.enumerated()), id: \.element.id) { index, effect in
+                    PedalView(
+                        effect: effect,
+                        isSelected: selectedEffect?.id == effect.id,
+                        onTap: { selectedEffect = selectedEffect?.id == effect.id ? nil : effect },
+                        onDoubleTap: { engine.toggleEffect(effect) },
+                        onDelete: {
+                            withAnimation {
+                                if selectedEffect?.id == effect.id { selectedEffect = nil }
+                                engine.removeEffect(at: index)
                             }
-                        )
-                        .draggable(effect.id.uuidString) {
-                            PedalView(effect: effect, isSelected: false, namespace: namespace, onTap: {}, onDoubleTap: {}, onDelete: {})
-                                .opacity(0.7)
-                                .scaleEffect(0.9)
                         }
-                        .dropDestination(for: String.self) { items, _ in
-                            guard let droppedId = items.first,
-                                  let sourceIndex = engine.effectsChain.firstIndex(where: { $0.id.uuidString == droppedId }),
-                                  sourceIndex != index else { return false }
-                            withAnimation(.spring(duration: 0.3)) {
-                                engine.moveEffect(from: IndexSet(integer: sourceIndex), to: index > sourceIndex ? index + 1 : index)
-                            }
-                            return true
+                    )
+                    .draggable(effect.id.uuidString) {
+                        PedalView(effect: effect, isSelected: false, onTap: {}, onDoubleTap: {}, onDelete: {})
+                            .opacity(0.7)
+                            .scaleEffect(0.9)
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let droppedId = items.first,
+                              let sourceIndex = engine.effectsChain.firstIndex(where: { $0.id.uuidString == droppedId }),
+                              sourceIndex != index else { return false }
+                        withAnimation(.spring(duration: 0.3)) {
+                            engine.moveEffect(from: IndexSet(integer: sourceIndex), to: index > sourceIndex ? index + 1 : index)
                         }
-
-                        CableView()
+                        return true
                     }
 
-                    // Output jack
-                    JackView(label: "OUT", isInput: false)
+                    CableView()
                 }
-                .padding(.vertical, 24)
-                .padding(.horizontal)
+
+                // Output jack
+                JackView(label: "OUT", isInput: false)
             }
+            .padding(.vertical, 20)
+            .padding(.horizontal)
         }
-        .glassEffect(in: .rect(cornerRadius: 20))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
     }
 }
 
-// MARK: - Pedal View (Modern Liquid Glass Style)
+// MARK: - Pedal View (Classic Guitar Pedal Style)
 
 struct PedalView: View {
     let effect: EffectNode
     let isSelected: Bool
-    let namespace: Namespace.ID
     let onTap: () -> Void
     let onDoubleTap: () -> Void
     let onDelete: () -> Void
@@ -145,30 +146,62 @@ struct PedalView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Pedal body
             ZStack {
-                // Pedal content
-                VStack(spacing: 10) {
+                // Metal enclosure with gradient
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(
+                        LinearGradient(
+                            colors: effect.isEnabled
+                                ? [effect.type.color, effect.type.color.opacity(0.7)]
+                                : [Color.gray.opacity(0.6), Color.gray.opacity(0.4)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                isSelected ? Color.white : Color.black.opacity(0.3),
+                                lineWidth: isSelected ? 2 : 1
+                            )
+                    )
+                    .shadow(color: effect.isEnabled ? effect.type.color.opacity(0.5) : .clear, radius: isSelected ? 10 : 5)
+
+                VStack(spacing: 8) {
                     // LED indicator
                     Circle()
-                        .fill(effect.isEnabled ? Color.green : Color.red.opacity(0.4))
+                        .fill(effect.isEnabled ? Color.green : Color.red.opacity(0.5))
                         .frame(width: 8, height: 8)
-                        .shadow(color: effect.isEnabled ? .green.opacity(0.8) : .clear, radius: 6)
+                        .shadow(color: effect.isEnabled ? .green : .clear, radius: 4)
 
-                    // Effect name only - no icon clutter
-                    Text(effect.type.rawValue.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    // Effect icon
+                    Image(systemName: effect.type.icon)
+                        .font(.system(size: 24, weight: .medium))
                         .foregroundStyle(.white)
+
+                    // Effect name
+                    Text(effect.type.rawValue.uppercased())
+                        .font(.system(size: 9, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.9))
 
                     // Footswitch
                     Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 28, height: 28)
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.gray.opacity(0.8), Color.gray.opacity(0.4)],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 15
+                            )
+                        )
+                        .frame(width: 30, height: 30)
                         .overlay(
                             Circle()
-                                .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
+                                .strokeBorder(Color.black.opacity(0.5), lineWidth: 2)
                         )
                 }
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
 
                 // Delete button on hover
                 if isHovering {
@@ -176,33 +209,18 @@ struct PedalView: View {
                         HStack {
                             Spacer()
                             Button(action: onDelete) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 20, height: 20)
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.white, .red)
                             }
-                            .buttonStyle(.glass)
+                            .buttonStyle(.plain)
                         }
                         Spacer()
                     }
                     .padding(4)
                 }
             }
-            .frame(width: 80, height: 110)
-            .glassEffect(
-                effect.isEnabled 
-                    ? .regular.tint(effect.type.color).interactive()
-                    : .regular.tint(.gray).interactive(),
-                in: .rect(cornerRadius: 12)
-            )
-            .glassEffectID(effect.id.uuidString, in: namespace)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(
-                        isSelected ? Color.white : Color.clear,
-                        lineWidth: 2
-                    )
-            )
+            .frame(width: 80, height: 120)
             .onTapGesture(count: 2) { onDoubleTap() }
             .onTapGesture { onTap() }
             .onHover { isHovering = $0 }
@@ -217,18 +235,28 @@ struct JackView: View {
     let isInput: Bool
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
+            // Jack housing
             ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 40, height: 50)
+
                 Circle()
-                    .fill(Color.black.opacity(0.6))
-                    .frame(width: 20, height: 20)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.black, Color.gray.opacity(0.5)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 12
+                        )
+                    )
+                    .frame(width: 24, height: 24)
                     .overlay(
                         Circle()
-                            .strokeBorder(Color.gray.opacity(0.5), lineWidth: 2)
+                            .strokeBorder(Color.gray, lineWidth: 2)
                     )
             }
-            .frame(width: 36, height: 44)
-            .glassEffect(in: .rect(cornerRadius: 8))
 
             Text(label)
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -244,12 +272,17 @@ struct CableView: View {
         Rectangle()
             .fill(
                 LinearGradient(
-                    colors: [.cyan.opacity(0.2), .cyan.opacity(0.4), .cyan.opacity(0.2)],
-                    startPoint: .leading,
-                    endPoint: .trailing
+                    colors: [.gray.opacity(0.3), .gray.opacity(0.5), .gray.opacity(0.3)],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
             )
-            .frame(width: 24, height: 3)
+            .frame(width: 30, height: 4)
+            .overlay(
+                Rectangle()
+                    .fill(Color.cyan.opacity(0.3))
+                    .frame(height: 2)
+            )
     }
 }
 
@@ -261,56 +294,61 @@ struct PedalControlsView: View {
     @State private var showingInfo = false
 
     var body: some View {
-        GlassEffectContainer(spacing: 12) {
-            VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Text(effect.type.rawValue)
-                        .font(.headline)
-                        .foregroundStyle(.white)
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Image(systemName: effect.type.icon)
+                    .foregroundStyle(effect.type.color)
+                Text(effect.type.rawValue)
+                    .font(.headline)
 
-                    Spacer()
+                Spacer()
 
-                    // Info button
-                    Button {
-                        withAnimation { showingInfo.toggle() }
-                    } label: {
-                        Image(systemName: "info")
-                            .font(.system(size: 12))
-                            .frame(width: 28, height: 28)
-                    }
-                    .buttonStyle(.glass)
-
-                    // Bypass toggle
-                    Toggle("", isOn: Binding(
-                        get: { effect.isEnabled },
-                        set: { _ in engine.toggleEffect(effect) }
-                    ))
-                    .toggleStyle(.switch)
-                    .tint(effect.type.color)
+                // Info button
+                Button {
+                    withAnimation { showingInfo.toggle() }
+                } label: {
+                    Image(systemName: showingInfo ? "info.circle.fill" : "info.circle")
+                        .foregroundStyle(showingInfo ? effect.type.color : .secondary)
                 }
+                .buttonStyle(.plain)
+
+                // Bypass toggle
+                Toggle("", isOn: Binding(
+                    get: { effect.isEnabled },
+                    set: { _ in engine.toggleEffect(effect) }
+                ))
+                .toggleStyle(.switch)
+                .tint(effect.type.color)
+            }
+
+            Divider()
+                .background(Color.white.opacity(0.2))
+
+            // Educational content
+            if showingInfo {
+                EffectEducationView(effectType: effect.type)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
 
                 Divider()
                     .background(Color.white.opacity(0.2))
-
-                // Educational content
-                if showingInfo {
-                    EffectEducationView(effectType: effect.type)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-
-                    Divider()
-                        .background(Color.white.opacity(0.2))
-                }
-
-                // Knobs based on effect type
-                EffectKnobsView(effect: effect, binding: binding)
             }
-            .padding()
+
+            // Knobs based on effect type
+            EffectKnobsView(effect: effect, binding: binding)
         }
-        .glassEffect(.regular.tint(effect.type.color.opacity(0.3)), in: .rect(cornerRadius: 20))
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .strokeBorder(effect.type.color.opacity(0.3), lineWidth: 1)
+                )
+        )
         .animation(.spring(duration: 0.3), value: showingInfo)
     }
 
@@ -332,6 +370,7 @@ struct EffectEducationView: View {
             // What it does
             EducationSection(
                 title: "What It Does",
+                icon: "questionmark.circle",
                 content: effectType.effectDescription,
                 color: effectType.color
             )
@@ -339,6 +378,7 @@ struct EffectEducationView: View {
             // How to use
             EducationSection(
                 title: "How To Use",
+                icon: "hand.point.up",
                 content: effectType.howToUse,
                 color: .green
             )
@@ -346,23 +386,32 @@ struct EffectEducationView: View {
             // Signal chain position
             EducationSection(
                 title: "Signal Chain Position",
+                icon: "arrow.right.circle",
                 content: effectType.signalChainPosition,
                 color: .cyan
             )
 
             // Genres
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Common Genres")
-                    .font(.caption.bold())
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "music.note.list")
                     .foregroundStyle(.purple)
+                    .frame(width: 20)
 
-                FlowLayout(spacing: 4) {
-                    ForEach(effectType.commonGenres, id: \.self) { genre in
-                        Text(genre)
-                            .font(.caption2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .glassEffect(.regular.tint(.purple), in: .capsule)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Common Genres")
+                        .font(.caption.bold())
+                        .foregroundStyle(.purple)
+
+                    FlowLayout(spacing: 4) {
+                        ForEach(effectType.commonGenres, id: \.self) { genre in
+                            Text(genre)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.purple.opacity(0.2))
+                                .foregroundStyle(.purple)
+                                .clipShape(Capsule())
+                        }
                     }
                 }
             }
@@ -370,12 +419,16 @@ struct EffectEducationView: View {
             // Famous examples
             EducationSection(
                 title: "Famous Examples",
+                icon: "star.fill",
                 content: effectType.famousExamples,
-                color: .orange
+                color: .yellow
             )
         }
         .padding()
-        .glassEffect(in: .rect(cornerRadius: 12))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.3))
+        )
     }
 }
 
@@ -383,19 +436,26 @@ struct EffectEducationView: View {
 
 struct EducationSection: View {
     let title: String
+    let icon: String
     let content: String
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption.bold())
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
                 .foregroundStyle(color)
+                .frame(width: 20)
 
-            Text(content)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.bold())
+                    .foregroundStyle(color)
+
+                Text(content)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }
@@ -520,7 +580,7 @@ struct EffectKnobsView: View {
     }
 }
 
-// MARK: - Knob View (Clean Glass Style)
+// MARK: - Knob View (Amp-style rotary knob)
 
 struct KnobView: View {
     let label: String
@@ -543,27 +603,49 @@ struct KnobView: View {
         VStack(spacing: 8) {
             // Knob
             ZStack {
-                // Knob cap with indicator
+                // Knob background
                 Circle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 44, height: 44)
+                    .fill(
+                        RadialGradient(
+                            colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.2)],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 25
+                        )
+                    )
+                    .frame(width: 50, height: 50)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Color.black.opacity(0.5), lineWidth: 2)
+                    )
+
+                // Knob cap
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.gray.opacity(0.8), Color.gray.opacity(0.4)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 40, height: 40)
                     .overlay(
                         // Indicator line
                         Rectangle()
                             .fill(color)
-                            .frame(width: 3, height: 10)
-                            .offset(y: -12)
+                            .frame(width: 3, height: 12)
+                            .offset(y: -10)
                     )
                     .rotationEffect(rotation)
+                    .shadow(color: isDragging ? color.opacity(0.5) : .clear, radius: 5)
 
                 // Value arc
                 Circle()
                     .trim(from: 0, to: normalizedValue * 0.75)
                     .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .frame(width: 52, height: 52)
+                    .frame(width: 56, height: 56)
                     .rotationEffect(.degrees(135))
             }
-            .glassEffect(.regular.interactive(), in: .circle)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
@@ -580,8 +662,8 @@ struct KnobView: View {
             // Label and value
             VStack(spacing: 2) {
                 Text(label)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
 
                 Text(String(format: format, value))
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -597,6 +679,6 @@ struct KnobView: View {
     EffectsChainView(engine: AudioEngineManager())
         .frame(height: 500)
         .padding()
-        .background(Color(red: 0.05, green: 0.05, blue: 0.1))
+        .background(Color.black)
 }
 
