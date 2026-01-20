@@ -139,7 +139,7 @@ final class AudioEngineManager: AudioManaging {
         let converter = AVAudioMixerNode()
         formatConverterMixer = converter
         engine.attach(converter)
-        
+
         // Create effect units
         effectUnits = EffectUnitsContainer()
         guard let units = effectUnits else { return }
@@ -187,11 +187,11 @@ final class AudioEngineManager: AudioManaging {
         engine.prepare()
         
         do {
-            try engine.start()
-            isRunning = true
-            errorMessage = nil
+        try engine.start()
+        isRunning = true
+        errorMessage = nil
             print("Audio engine started successfully")
-            print("Audio engine running! Play your guitar!")
+        print("Audio engine running! Play your guitar!")
             
             // Start simulated visualization (stable version)
             startSimulatedVisualization()
@@ -237,14 +237,13 @@ final class AudioEngineManager: AudioManaging {
         
         // Use bypass instead of rebuilding entire chain (more stable)
         guard let units = effectUnits else {
-            rebuildAudioChain()
+        rebuildAudioChain()
             return
         }
         
-        if let unit = units.audioUnit(for: effect.type) {
-            unit.bypass = !effect.isEnabled
-            print("toggleEffect: \(effect.type.rawValue) \(effect.isEnabled ? "enabled" : "bypassed")")
-        }
+        // Set bypass directly on the specific effect unit
+        units.setBypass(for: effect.type, bypassed: !effect.isEnabled)
+        print("toggleEffect: \(effect.type.rawValue) \(effect.isEnabled ? "enabled" : "bypassed")")
     }
 
     func updateEffectParameter(_ effect: EffectNode, key: String, value: Float) {
@@ -279,7 +278,7 @@ final class AudioEngineManager: AudioManaging {
         let file = try AVAudioFile(forReading: url)
         let fileFormat = file.processingFormat
         let frameCount = AVAudioFrameCount(file.length)
-        
+
         print("loadBackingTrack: File format: \(fileFormat.sampleRate)Hz, \(fileFormat.channelCount)ch")
 
         guard let buffer = AVAudioPCMBuffer(pcmFormat: fileFormat, frameCapacity: frameCount) else {
@@ -300,7 +299,7 @@ final class AudioEngineManager: AudioManaging {
         }
 
         player.stop()
-        
+
         player.scheduleBuffer(buffer, at: nil, options: .loops)
         player.volume = backingTrackVolume
         player.play()
@@ -329,7 +328,7 @@ final class AudioEngineManager: AudioManaging {
         print("setupEngine: Audio session configured")
     }
     #endif
-    
+
     private func attachAllEffects(to engine: AVAudioEngine, units: EffectUnitsContainer) {
         // Dynamics
         engine.attach(units.compressor)
@@ -746,6 +745,35 @@ private final class EffectUnitsContainer {
         case .tremolo: return tremolo
         case .delay: return delay
         case .reverb: return reverb
+        }
+    }
+    
+    /// Set bypass state for a specific effect type
+    /// AVAudioUnit base class doesn't have bypass, so we access concrete types directly
+    func setBypass(for type: EffectType, bypassed: Bool) {
+        switch type {
+        case .compressor:
+            compressor.bypass = bypassed
+        case .equalizer:
+            equalizer?.bypass = bypassed
+        case .overdrive:
+            overdrive.bypass = bypassed
+        case .distortion:
+            distortion.bypass = bypassed
+        case .fuzz:
+            fuzz.bypass = bypassed
+        case .chorus:
+            chorus.bypass = bypassed
+        case .phaser:
+            phaser.bypass = bypassed
+        case .flanger:
+            flanger.bypass = bypassed
+        case .tremolo:
+            tremolo.bypass = bypassed
+        case .delay:
+            delay.bypass = bypassed
+        case .reverb:
+            reverb.bypass = bypassed
         }
     }
 }
