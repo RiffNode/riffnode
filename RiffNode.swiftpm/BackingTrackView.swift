@@ -1,9 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Backing Track View (Tape Deck Style)
-// Following Single Responsibility: Handles backing track UI only
-// Business logic delegated to BackingTrackManaging protocol
+// MARK: - Backing Track View (Clean Liquid Glass Style)
 
 struct BackingTrackView: View {
 
@@ -18,40 +16,44 @@ struct BackingTrackView: View {
     @State private var isLoading = false
     @State private var reelRotation: Double = 0
     @State private var rotationTimer: Timer?
+    @Namespace private var trackNamespace
 
     // MARK: - Body
 
     var body: some View {
-        VStack(spacing: 0) {
-            BackingTrackHeader(onImport: { isImporting = true })
+        GlassEffectContainer(spacing: 12) {
+            VStack(spacing: 0) {
+                BackingTrackHeader(onImport: { isImporting = true })
 
-            TapeDeckView(
-                isPlaying: engine.isBackingTrackPlaying,
-                trackName: loadedTrackName,
-                rotation: reelRotation
-            )
-            .padding(.horizontal)
+                TapeDeckView(
+                    isPlaying: engine.isBackingTrackPlaying,
+                    trackName: loadedTrackName,
+                    rotation: reelRotation
+                )
+                .padding(.horizontal)
 
-            TransportControlsView(
-                volume: Binding(
-                    get: { engine.backingTrackVolume },
-                    set: { engine.setBackingTrackVolume($0) }
-                ),
-                isPlaying: engine.isBackingTrackPlaying,
-                hasTrack: loadedTrackName != nil,
-                isLoading: isLoading,
-                onPlay: {
-                    engine.playBackingTrack()
-                    startReelAnimation()
-                },
-                onStop: {
-                    engine.stopBackingTrack()
-                    stopReelAnimation()
-                }
-            )
-            .padding()
+                TransportControlsView(
+                    volume: Binding(
+                        get: { engine.backingTrackVolume },
+                        set: { engine.setBackingTrackVolume($0) }
+                    ),
+                    isPlaying: engine.isBackingTrackPlaying,
+                    hasTrack: loadedTrackName != nil,
+                    isLoading: isLoading,
+                    namespace: trackNamespace,
+                    onPlay: {
+                        engine.playBackingTrack()
+                        startReelAnimation()
+                    },
+                    onStop: {
+                        engine.stopBackingTrack()
+                        stopReelAnimation()
+                    }
+                )
+                .padding()
+            }
         }
-        .background(backingTrackBackground)
+        .glassEffect(.regular.tint(.purple.opacity(0.2)), in: .rect(cornerRadius: 20))
         .fileImporter(
             isPresented: $isImporting,
             allowedContentTypes: [.audio, .mp3, .wav, .aiff],
@@ -66,17 +68,6 @@ struct BackingTrackView: View {
                 stopReelAnimation()
             }
         }
-    }
-
-    // MARK: - Private Views
-
-    private var backingTrackBackground: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.ultraThinMaterial)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1)
-            )
     }
 
     // MARK: - Private Methods
@@ -137,9 +128,9 @@ struct BackingTrackHeader: View {
     var body: some View {
         HStack {
             HStack(spacing: 8) {
-                Image(systemName: "opticaldisc.fill")
+                Image(systemName: "music.note.list")
                     .foregroundStyle(.purple)
-                Text("TAPE DECK")
+                Text("BACKING TRACK")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
             }
@@ -149,16 +140,13 @@ struct BackingTrackHeader: View {
             Button(action: onImport) {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
-                    Text("Load Track")
+                    Text("Load")
                 }
                 .font(.system(size: 12, weight: .semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(.purple.gradient)
-                .foregroundStyle(.white)
-                .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.glassProminent)
         }
         .padding()
     }
@@ -172,7 +160,7 @@ struct TapeDeckView: View {
     let rotation: Double
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 16) {
             TapeReelView(rotation: rotation, isSupply: true)
 
             TapeWindowView(isPlaying: isPlaying, trackName: trackName)
@@ -181,14 +169,7 @@ struct TapeDeckView: View {
             TapeReelView(rotation: -rotation, isSupply: false)
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.3))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
+        .glassEffect(in: .rect(cornerRadius: 12))
     }
 }
 
@@ -202,10 +183,6 @@ struct TapeWindowView: View {
         VStack(spacing: 8) {
             // Track name display
             ZStack {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.black.opacity(0.6))
-                    .frame(height: 30)
-
                 if let name = trackName {
                     Text(name)
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -213,41 +190,38 @@ struct TapeWindowView: View {
                         .lineLimit(1)
                         .padding(.horizontal, 8)
                 } else {
-                    Text("NO TAPE LOADED")
+                    Text("NO TRACK LOADED")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                 }
             }
+            .frame(height: 28)
+            .frame(maxWidth: .infinity)
+            .glassEffect(in: .rect(cornerRadius: 6))
 
             // Tape transport visualization
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 ForEach(0..<8, id: \.self) { i in
                     Rectangle()
                         .fill(
                             isPlaying
-                                ? Color.brown.opacity(0.6 + Double(i) * 0.05)
-                                : Color.brown.opacity(0.3)
+                                ? Color.brown.opacity(0.5 + Double(i) * 0.06)
+                                : Color.brown.opacity(0.2)
                         )
-                        .frame(width: 8, height: 20)
+                        .frame(width: 6, height: 16)
+                        .clipShape(RoundedRectangle(cornerRadius: 1))
                 }
             }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.black.opacity(0.4))
-            )
 
             // Status indicator
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 Circle()
-                    .fill(isPlaying ? Color.red : Color.red.opacity(0.3))
-                    .frame(width: 8, height: 8)
-                    .shadow(color: isPlaying ? .red : .clear, radius: 4)
+                    .fill(isPlaying ? Color.green : Color.secondary.opacity(0.3))
+                    .frame(width: 6, height: 6)
 
                 Text(isPlaying ? "PLAYING" : "STOPPED")
                     .font(.system(size: 9, weight: .bold, design: .monospaced))
-                    .foregroundStyle(isPlaying ? .green : .gray)
+                    .foregroundStyle(isPlaying ? .green : .secondary)
             }
         }
     }
@@ -261,47 +235,31 @@ struct TapeReelView: View {
 
     var body: some View {
         ZStack {
-            // Reel base
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [Color.gray.opacity(0.6), Color.gray.opacity(0.3)],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 35
-                    )
-                )
-                .frame(width: 70, height: 70)
-
             // Tape spool
             Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.brown.opacity(0.8), Color.brown.opacity(0.4)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: isSupply ? 50 : 40, height: isSupply ? 50 : 40)
+                .fill(Color.brown.opacity(0.4))
+                .frame(width: isSupply ? 44 : 36, height: isSupply ? 44 : 36)
 
             // Reel hub
             Circle()
-                .fill(Color.gray.opacity(0.8))
-                .frame(width: 20, height: 20)
+                .fill(Color.white.opacity(0.2))
+                .frame(width: 16, height: 16)
 
             // Spokes
             ForEach(0..<3, id: \.self) { i in
                 Rectangle()
-                    .fill(Color.gray.opacity(0.6))
-                    .frame(width: 2, height: 30)
+                    .fill(Color.white.opacity(0.3))
+                    .frame(width: 2, height: 24)
                     .rotationEffect(.degrees(Double(i) * 120 + rotation))
             }
 
             // Center hole
             Circle()
-                .fill(Color.black)
-                .frame(width: 8, height: 8)
+                .fill(Color.black.opacity(0.6))
+                .frame(width: 6, height: 6)
         }
+        .frame(width: 56, height: 56)
+        .glassEffect(in: .circle)
     }
 }
 
@@ -312,97 +270,58 @@ struct TransportControlsView: View {
     let isPlaying: Bool
     let hasTrack: Bool
     let isLoading: Bool
+    let namespace: Namespace.ID
     let onPlay: () -> Void
     let onStop: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Rewind (placeholder)
-            TransportButton(icon: "backward.fill", isActive: false, color: .gray) {}
-                .disabled(true)
-                .opacity(0.5)
-
-            // Stop
-            TransportButton(icon: "stop.fill", isActive: !isPlaying && hasTrack, color: .gray) {
-                onStop()
-            }
-            .disabled(!hasTrack || !isPlaying)
-
-            // Play
-            ZStack {
-                if isLoading {
-                    ProgressView()
-                        .controlSize(.regular)
-                        .tint(.green)
-                } else {
-                    TransportButton(
-                        icon: isPlaying ? "pause.fill" : "play.fill",
-                        isActive: isPlaying,
-                        color: .green,
-                        isLarge: true
-                    ) {
-                        if isPlaying { onStop() } else { onPlay() }
-                    }
-                    .disabled(!hasTrack)
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 12) {
+                // Stop
+                Button {
+                    onStop()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 14))
+                        .frame(width: 36, height: 36)
+                        .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.glass)
+                .disabled(!hasTrack || !isPlaying)
+                .opacity(hasTrack && isPlaying ? 1 : 0.5)
+
+                // Play/Pause
+                ZStack {
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.regular)
+                    } else {
+                        Button {
+                            if isPlaying { onStop() } else { onPlay() }
+                        } label: {
+                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 20))
+                                .frame(width: 50, height: 50)
+                                .foregroundStyle(hasTrack ? (isPlaying ? .white : .green) : .secondary)
+                        }
+                        .buttonStyle(.glassProminent)
+                        .disabled(!hasTrack)
+                        .glassEffectID("play-button", in: namespace)
+                    }
+                }
+
+                Spacer()
+
+                // Volume control
+                VolumeControlView(volume: $volume)
             }
-            .frame(width: 60, height: 60)
-
-            // Fast forward (placeholder)
-            TransportButton(icon: "forward.fill", isActive: false, color: .gray) {}
-                .disabled(true)
-                .opacity(0.5)
-
-            Spacer()
-
-            VolumeKnobView(volume: $volume)
         }
     }
 }
 
-// MARK: - Transport Button
+// MARK: - Volume Control View
 
-struct TransportButton: View {
-    let icon: String
-    let isActive: Bool
-    let color: Color
-    var isLarge: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                isActive ? color.opacity(0.8) : Color.gray.opacity(0.4),
-                                isActive ? color.opacity(0.4) : Color.gray.opacity(0.2)
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: isLarge ? 30 : 20
-                        )
-                    )
-                    .frame(width: isLarge ? 60 : 44, height: isLarge ? 60 : 44)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.black.opacity(0.3), lineWidth: 2)
-                    )
-                    .shadow(color: isActive ? color.opacity(0.5) : .clear, radius: 5)
-
-                Image(systemName: icon)
-                    .font(.system(size: isLarge ? 24 : 16, weight: .bold))
-                    .foregroundStyle(isActive ? .white : .gray)
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Volume Knob View
-
-struct VolumeKnobView: View {
+struct VolumeControlView: View {
     @Binding var volume: Float
     @State private var isDragging = false
 
@@ -413,48 +332,26 @@ struct VolumeKnobView: View {
     var body: some View {
         VStack(spacing: 4) {
             ZStack {
-                // Background
+                // Knob cap with indicator
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [Color.gray.opacity(0.4), Color.gray.opacity(0.2)],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: 20
-                        )
-                    )
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.black.opacity(0.5), lineWidth: 2)
-                    )
-
-                // Knob cap
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.gray.opacity(0.8), Color.gray.opacity(0.4)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 32, height: 32)
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 36, height: 36)
                     .overlay(
                         Rectangle()
                             .fill(Color.purple)
                             .frame(width: 2, height: 10)
-                            .offset(y: -8)
+                            .offset(y: -10)
                     )
                     .rotationEffect(rotation)
-                    .shadow(color: isDragging ? Color.purple.opacity(0.5) : .clear, radius: 3)
 
                 // Volume arc
                 Circle()
                     .trim(from: 0, to: CGFloat(volume) * 0.75)
                     .stroke(Color.purple, style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                    .frame(width: 46, height: 46)
+                    .frame(width: 42, height: 42)
                     .rotationEffect(.degrees(135))
             }
+            .glassEffect(.regular.interactive(), in: .circle)
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
@@ -480,6 +377,6 @@ struct VolumeKnobView: View {
 #Preview {
     BackingTrackView(engine: AudioEngineManager())
         .padding()
-        .frame(width: 400)
-        .background(Color.black)
+        .frame(width: 380)
+        .background(Color(red: 0.05, green: 0.05, blue: 0.1))
 }

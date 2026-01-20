@@ -15,6 +15,7 @@ struct EffectGuideView: View {
     
     @State private var selectedCategoryIndex: Int = 0
     @State private var expandedEffectId: UUID? = nil
+    @Namespace private var guideNamespace
     
     // MARK: - Initialization
     
@@ -41,7 +42,8 @@ struct EffectGuideView: View {
             
             CategorySelectorView(
                 categories: categories,
-                selectedIndex: $selectedCategoryIndex
+                selectedIndex: $selectedCategoryIndex,
+                namespace: guideNamespace
             )
             
             if let category = selectedCategory {
@@ -58,109 +60,102 @@ struct EffectGuideView: View {
 }
 
 // MARK: - Guide Header View
-// Following Single Responsibility: Only renders header
 
 struct GuideHeaderView: View {
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Image(systemName: "book.fill")
-                    .foregroundStyle(.yellow)
-                Text("EFFECT PEDAL GUIDE")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                Spacer()
+        GlassEffectContainer(spacing: 12) {
+            VStack(spacing: 8) {
+                HStack {
+                    Image(systemName: "text.book.closed")
+                        .foregroundStyle(.cyan)
+                    Text("EFFECT GUIDE")
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    Spacer()
+                }
+                
+                Text("Learn about guitar effects and how to use them in your signal chain")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            
-            Text("Learn about different types of guitar effects and how to use them")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
-        .padding()
-        .background(Color.black.opacity(0.3))
     }
 }
 
 // MARK: - Category Selector View
-// Following Single Responsibility: Only handles category selection UI
 
 struct CategorySelectorView: View {
     let categories: [any EffectCategoryProviding]
     @Binding var selectedIndex: Int
+    let namespace: Namespace.ID
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
-                    CategoryButton(
-                        category: category,
-                        isSelected: selectedIndex == index
-                    ) {
-                        withAnimation(.spring(duration: 0.3)) {
-                            selectedIndex = index
+        GlassEffectContainer(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
+                        CategoryButton(
+                            category: category,
+                            isSelected: selectedIndex == index,
+                            namespace: namespace
+                        ) {
+                            withAnimation(.spring(duration: 0.3)) {
+                                selectedIndex = index
+                            }
                         }
                     }
                 }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
         }
-        .background(Color.black.opacity(0.2))
     }
 }
 
 // MARK: - Category Button
-// Following Single Responsibility: Only renders a single category button
 
 struct CategoryButton: View {
     let category: any EffectCategoryProviding
     let isSelected: Bool
+    let namespace: Namespace.ID
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 12))
-                Text(category.name)
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? category.color : Color.gray.opacity(0.3))
-            )
-            .foregroundStyle(isSelected ? .black : .white)
+            Text(category.name)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .foregroundStyle(isSelected ? .white : .secondary)
         }
         .buttonStyle(.plain)
+        .glassEffect(
+            isSelected ? .regular.tint(category.color).interactive() : .regular,
+            in: .capsule
+        )
+        .glassEffectID("category-\(category.name)", in: namespace)
     }
 }
 
 // MARK: - Category Description View
-// Following Single Responsibility: Only renders category description
 
 struct CategoryDescriptionView: View {
     let category: any EffectCategoryProviding
     
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: category.icon)
-                .font(.title2)
-                .foregroundStyle(category.color)
-            
             Text(category.description)
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(category.color.opacity(0.1))
+        .glassEffect(.regular.tint(category.color.opacity(0.3)), in: .rect(cornerRadius: 0))
     }
 }
 
 // MARK: - Effects List View
-// Following Single Responsibility: Only renders the list of effects
 
 struct EffectsListView: View {
     let effects: [any EffectInfoProviding]
@@ -188,7 +183,6 @@ struct EffectsListView: View {
 }
 
 // MARK: - Effect Card View
-// Following Single Responsibility: Only renders a single effect card
 
 struct EffectCardView: View {
     let effect: EffectInfoModel
@@ -204,23 +198,15 @@ struct EffectCardView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            isExpanded ? effect.color.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: 1
-                        )
-                )
+        .glassEffect(
+            isExpanded ? .regular.tint(effect.color.opacity(0.2)).interactive() : .regular.interactive(),
+            in: .rect(cornerRadius: 16)
         )
         .animation(.spring(duration: 0.3), value: isExpanded)
     }
 }
 
 // MARK: - Effect Card Header
-// Following Single Responsibility: Only renders card header
 
 struct EffectCardHeader: View {
     let effect: EffectInfoModel
@@ -230,14 +216,10 @@ struct EffectCardHeader: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(effect.color.opacity(0.2))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: effect.icon)
-                        .font(.system(size: 18))
-                        .foregroundStyle(effect.color)
-                }
+                // Color indicator
+                Circle()
+                    .fill(effect.color)
+                    .frame(width: 8, height: 8)
                 
                 Text(effect.name)
                     .font(.headline)
@@ -246,8 +228,8 @@ struct EffectCardHeader: View {
                 Spacer()
                 
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .foregroundStyle(.secondary)
                     .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding()
         }
@@ -256,7 +238,6 @@ struct EffectCardHeader: View {
 }
 
 // MARK: - Effect Card Details
-// Following Single Responsibility: Only renders expanded details
 
 struct EffectCardDetails: View {
     let effect: EffectInfoModel
@@ -269,35 +250,30 @@ struct EffectCardDetails: View {
             EffectDetailRow(
                 title: "Function",
                 content: effect.function,
-                icon: "gearshape.fill",
                 color: .cyan
             )
             
             EffectDetailRow(
                 title: "Sound",
                 content: effect.sound,
-                icon: "speaker.wave.3.fill",
                 color: .green
             )
             
             EffectDetailRow(
                 title: "How to Use",
                 content: effect.howToUse,
-                icon: "hand.point.up.fill",
                 color: .yellow
             )
             
             EffectDetailRow(
                 title: "Signal Chain Position",
                 content: effect.signalChainPosition,
-                icon: "arrow.right.circle.fill",
                 color: .orange
             )
             
             EffectDetailRow(
                 title: "Famous Users",
                 content: effect.famousUsers,
-                icon: "star.fill",
                 color: .purple
             )
         }
@@ -306,30 +282,22 @@ struct EffectCardDetails: View {
 }
 
 // MARK: - Effect Detail Row
-// Following Single Responsibility: Only renders a single detail row
 
 struct EffectDetailRow: View {
     let title: String
     let content: String
-    let icon: String
     let color: Color
     
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.bold())
                 .foregroundStyle(color)
-                .frame(width: 20)
             
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption.bold())
-                    .foregroundStyle(color)
-                
-                Text(content)
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(content)
+                .font(.callout)
+                .foregroundStyle(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

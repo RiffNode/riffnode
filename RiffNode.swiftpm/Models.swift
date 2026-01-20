@@ -20,11 +20,12 @@ enum EffectCategory: String, CaseIterable, Identifiable, Sendable {
     
     var icon: String {
         switch self {
-        case .dynamics: return "waveform.path.ecg"
-        case .filterPitch: return "waveform"
-        case .gainDirt: return "bolt.fill"
-        case .modulation: return "wind"
-        case .timeAmbience: return "clock.arrow.2.circlepath"
+        // Clean, minimal SF Symbols for categories
+        case .dynamics: return "gauge.with.needle"
+        case .filterPitch: return "slider.horizontal.3"
+        case .gainDirt: return "waveform.path.ecg"
+        case .modulation: return "waveform.circle"
+        case .timeAmbience: return "timer"
         }
     }
     
@@ -101,17 +102,18 @@ enum EffectType: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var icon: String {
         switch self {
-        case .compressor: return "rectangle.compress.vertical"
+        // Using minimal, audio-relevant SF Symbols only
+        case .compressor: return "gauge.with.needle"
         case .equalizer: return "slider.horizontal.3"
-        case .overdrive: return "car.fill"
-        case .distortion: return "bolt.fill"
-        case .fuzz: return "cloud.fill"
-        case .chorus: return "person.3.fill"
-        case .phaser: return "circle.hexagongrid.fill"
-        case .flanger: return "airplane"
-        case .tremolo: return "wave.3.right"
-        case .delay: return "repeat"
-        case .reverb: return "waveform.path"
+        case .overdrive: return "waveform.path.ecg"
+        case .distortion: return "waveform.badge.exclamationmark"
+        case .fuzz: return "waveform"
+        case .chorus: return "waveform.circle"
+        case .phaser: return "waveform.and.magnifyingglass"
+        case .flanger: return "waveform.path.ecg.rectangle"
+        case .tremolo: return "waveform.path"
+        case .delay: return "timer"
+        case .reverb: return "waveform.badge.plus"
         }
     }
 

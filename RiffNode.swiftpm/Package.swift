@@ -10,8 +10,8 @@ import AppleProductTypes
 let package = Package(
     name: "RiffNode",
     platforms: [
-        .macOS("14.0"),
-        .iOS("17.0")
+        .macOS("26.0"),
+        .iOS("26.0")
     ],
     products: [
         .iOSApplication(
