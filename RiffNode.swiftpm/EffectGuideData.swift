@@ -67,14 +67,17 @@ struct EffectCategoryModel: EffectCategoryProviding, Identifiable {
 // Following Single Responsibility: Only provides effect guide data
 // Following Open/Closed: Open for extension (new categories), closed for modification
 
-final class EffectGuideService: EffectGuideServiceProtocol {
+final class EffectGuideService: EffectGuideServiceProtocol, @unchecked Sendable {
+    // Note: @unchecked Sendable is safe here because:
+    // 1. All properties are immutable (let)
+    // 2. No mutable state after initialization
     
     // MARK: - Singleton (for simplicity in SwiftUI)
     static let shared = EffectGuideService()
     
     // MARK: - Properties
     
-    private(set) var categories: [any EffectCategoryProviding]
+    let categories: [any EffectCategoryProviding]
     
     // MARK: - Initialization
     
