@@ -399,32 +399,28 @@ final class AudioEngineManager: AudioManaging {
             tapInstalled = false
         }
 
-        // 安全地斷開所有節點 - 使用 try-catch 避免崩潰
-        // Safely disconnect all nodes - use do-catch to prevent crashes
-        do {
-            // 只斷開已連接的節點
-            // Only disconnect nodes that are connected
-            if engine.attachedNodes.contains(converter) {
-                engine.disconnectNodeOutput(converter)
-            }
-            if engine.attachedNodes.contains(units.distortion) {
-                engine.disconnectNodeOutput(units.distortion)
-            }
-            if engine.attachedNodes.contains(units.delay) {
-                engine.disconnectNodeOutput(units.delay)
-            }
-            if engine.attachedNodes.contains(units.reverb) {
-                engine.disconnectNodeOutput(units.reverb)
-            }
-            if let eq = units.equalizer, engine.attachedNodes.contains(eq) {
-                engine.disconnectNodeOutput(eq)
-            }
-            // 不要斷開 inputNode - 它是引擎的內建節點
-            // Don't disconnect inputNode - it's a built-in engine node
-            engine.disconnectNodeInput(converter)
-        } catch {
-            print("rebuildAudioChain: Error disconnecting nodes: \(error)")
+        // 安全地斷開所有節點
+        // Safely disconnect all nodes
+        // 只斷開已連接的節點
+        // Only disconnect nodes that are connected
+        if engine.attachedNodes.contains(converter) {
+            engine.disconnectNodeOutput(converter)
         }
+        if engine.attachedNodes.contains(units.distortion) {
+            engine.disconnectNodeOutput(units.distortion)
+        }
+        if engine.attachedNodes.contains(units.delay) {
+            engine.disconnectNodeOutput(units.delay)
+        }
+        if engine.attachedNodes.contains(units.reverb) {
+            engine.disconnectNodeOutput(units.reverb)
+        }
+        if let eq = units.equalizer, engine.attachedNodes.contains(eq) {
+            engine.disconnectNodeOutput(eq)
+        }
+        // 不要斷開 inputNode - 它是引擎的內建節點
+        // Don't disconnect inputNode - it's a built-in engine node
+        engine.disconnectNodeInput(converter)
 
         // 獲取格式
         // Get formats
@@ -529,7 +525,9 @@ final class AudioEngineManager: AudioManaging {
         visualizationPhase = 0
         
         visualizationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            self?.updateVisualization()
+            Task { @MainActor in
+                self?.updateVisualization()
+            }
         }
         
         print("Simulated visualization started")
