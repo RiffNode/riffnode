@@ -185,17 +185,14 @@ final class AudioEngineManager: AudioManaging {
             isRunning = true
             errorMessage = nil
             print("Audio engine started successfully")
-            print("Audio engine running! Play your guitar!")
             
-            // 暫時禁用可視化 tap 以測試穩定性
-            // Temporarily disable visualization tap to test stability
-            // 如果這樣不崩潰，問題在可視化處理中
-            // If this doesn't crash, the problem is in visualization processing
-            
-            // Task { @MainActor in
-            //     try? await Task.sleep(for: .milliseconds(500))
-            //     self.installVisualizationTap()
-            // }
+            // 延遲安裝可視化 tap，確保引擎完全穩定
+            // Delay visualization tap installation to ensure engine is fully stable
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))
+                self.installVisualizationTap()
+                print("Audio engine running! Play your guitar!")
+            }
         } catch {
             print("Failed to start audio engine: \(error)")
             throw error
