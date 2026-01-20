@@ -354,11 +354,13 @@ struct MainInterfaceView: View {
     enum MainTab: String, CaseIterable {
         case pedalboard = "Pedalboard"
         case parametricEQ = "Parametric EQ"
+        case learnEffects = "Learn Effects"
         
         var icon: String {
             switch self {
             case .pedalboard: return "square.grid.3x3.fill"
             case .parametricEQ: return "slider.horizontal.3"
+            case .learnEffects: return "book.fill"
             }
         }
     }
@@ -423,6 +425,8 @@ struct MainInterfaceView: View {
                             ParametricEQView(engine: engine)
                                 .padding()
                         }
+                    case .learnEffects:
+                        EffectGuideView()
                     }
                 }
                 .frame(maxWidth: .infinity)
