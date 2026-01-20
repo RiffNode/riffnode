@@ -349,6 +349,19 @@ struct MainInterfaceView: View {
 
     @State private var showingSettings = false
     @State private var showingPresets = false
+    @State private var selectedTab: MainTab = .pedalboard
+    
+    enum MainTab: String, CaseIterable {
+        case pedalboard = "Pedalboard"
+        case parametricEQ = "Parametric EQ"
+        
+        var icon: String {
+            switch self {
+            case .pedalboard: return "square.grid.3x3.fill"
+            case .parametricEQ: return "slider.horizontal.3"
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -371,9 +384,46 @@ struct MainInterfaceView: View {
                     .fill(Color.white.opacity(0.1))
                     .frame(width: 1)
 
-                // Right panel
+                // Right panel with tab switching
                 VStack(spacing: 0) {
-                    EffectsChainView(engine: engine)
+                    // Tab selector
+                    HStack(spacing: 0) {
+                        ForEach(MainTab.allCases, id: \.rawValue) { tab in
+                            Button {
+                                withAnimation(.spring(duration: 0.3)) {
+                                    selectedTab = tab
+                                }
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: tab.icon)
+                                    Text(tab.rawValue)
+                                }
+                                .font(.system(size: 13, weight: .medium))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(
+                                    selectedTab == tab
+                                        ? Color.white.opacity(0.1)
+                                        : Color.clear
+                                )
+                                .foregroundStyle(selectedTab == tab ? .white : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        Spacer()
+                    }
+                    .background(Color.black.opacity(0.2))
+                    
+                    // Content based on selected tab
+                    switch selectedTab {
+                    case .pedalboard:
+                        EffectsChainView(engine: engine)
+                    case .parametricEQ:
+                        ScrollView {
+                            ParametricEQView(engine: engine)
+                                .padding()
+                        }
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
