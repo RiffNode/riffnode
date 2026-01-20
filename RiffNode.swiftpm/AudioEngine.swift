@@ -498,47 +498,15 @@ final class AudioEngineManager: AudioManaging {
     }
 
     // MARK: - Simulated Visualization
-    // 使用模擬數據來展示可視化效果，避免音頻 tap 導致的崩潰
-    // Use simulated data for visualization to avoid crashes from audio tap
+    
+    private var visualizationPhase: Float = 0
     
     private func startSimulatedVisualization() {
         stopSimulatedVisualization()
-        
-        var phase: Float = 0
+        visualizationPhase = 0
         
         visualizationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self = self, self.isRunning else { return }
-                
-                // 生成模擬波形數據
-                // Generate simulated waveform data
-                var samples = [Float](repeating: 0, count: 128)
-                
-                for i in 0..<128 {
-                    let x = Float(i) / 128.0
-                    // 組合多個正弦波來模擬吉他波形
-                    // Combine multiple sine waves to simulate guitar waveform
-                    let wave1 = sin((x * 4.0 + phase) * .pi * 2) * 0.4
-                    let wave2 = sin((x * 8.0 + phase * 1.5) * .pi * 2) * 0.2
-                    let wave3 = sin((x * 16.0 + phase * 2.0) * .pi * 2) * 0.1
-                    let noise = Float.random(in: -0.05...0.05)
-                    
-                    samples[i] = abs(wave1 + wave2 + wave3 + noise)
-                }
-                
-                // 更新相位以產生動畫效果
-                // Update phase for animation
-                phase += 0.15
-                if phase > 1000 { phase = 0 }
-                
-                // 模擬輸出電平
-                // Simulate output level
-                let level = 0.3 + Float.random(in: 0...0.2)
-                
-                self.waveformSamples = samples
-                self.outputLevel = level
-                self.inputLevel = level * 0.8
-            }
+            self?.updateSimulatedVisualization()
         }
         
         print("Simulated visualization started")
@@ -547,6 +515,50 @@ final class AudioEngineManager: AudioManaging {
     private func stopSimulatedVisualization() {
         visualizationTimer?.invalidate()
         visualizationTimer = nil
+    }
+    
+    private func updateSimulatedVisualization() {
+        Task { @MainActor in
+            guard self.isRunning else { return }
+            
+            let samples = self.generateWaveformSamples()
+            let level = self.generateRandomLevel()
+            
+            self.waveformSamples = samples
+            self.outputLevel = level
+            self.inputLevel = level * 0.8
+            
+            self.visualizationPhase += 0.15
+            if self.visualizationPhase > 1000 {
+                self.visualizationPhase = 0
+            }
+        }
+    }
+    
+    private func generateWaveformSamples() -> [Float] {
+        var samples = [Float](repeating: 0, count: 128)
+        let phase = visualizationPhase
+        
+        for i in 0..<128 {
+            let x: Float = Float(i) / 128.0
+            let angle1: Float = (x * 4.0 + phase) * Float.pi * 2
+            let angle2: Float = (x * 8.0 + phase * 1.5) * Float.pi * 2
+            let angle3: Float = (x * 16.0 + phase * 2.0) * Float.pi * 2
+            
+            let wave1: Float = sin(angle1) * 0.4
+            let wave2: Float = sin(angle2) * 0.2
+            let wave3: Float = sin(angle3) * 0.1
+            let noise: Float = Float.random(in: -0.05...0.05)
+            
+            let combined: Float = wave1 + wave2 + wave3 + noise
+            samples[i] = abs(combined)
+        }
+        
+        return samples
+    }
+    
+    private func generateRandomLevel() -> Float {
+        return 0.3 + Float.random(in: 0...0.2)
     }
 }
 
