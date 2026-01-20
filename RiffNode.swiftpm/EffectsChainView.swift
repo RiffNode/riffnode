@@ -285,6 +285,7 @@ struct CableView: View {
 struct PedalControlsView: View {
     @Bindable var effect: EffectNode
     let engine: AudioEngineManager
+    @State private var showingInfo = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -296,6 +297,15 @@ struct PedalControlsView: View {
                     .font(.headline)
 
                 Spacer()
+                
+                // Info button
+                Button {
+                    withAnimation { showingInfo.toggle() }
+                } label: {
+                    Image(systemName: showingInfo ? "info.circle.fill" : "info.circle")
+                        .foregroundStyle(showingInfo ? effect.type.color : .secondary)
+                }
+                .buttonStyle(.plain)
 
                 // Bypass toggle
                 Toggle("", isOn: Binding(
@@ -308,6 +318,18 @@ struct PedalControlsView: View {
 
             Divider()
                 .background(Color.white.opacity(0.2))
+            
+            // Educational content
+            if showingInfo {
+                EffectEducationView(effectType: effect.type)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                
+                Divider()
+                    .background(Color.white.opacity(0.2))
+            }
 
             // Knobs based on effect type
             HStack(spacing: 24) {
@@ -340,6 +362,7 @@ struct PedalControlsView: View {
                         .strokeBorder(effect.type.color.opacity(0.3), lineWidth: 1)
                 )
         )
+        .animation(.spring(duration: 0.3), value: showingInfo)
     }
 
     private func binding(for key: String) -> Binding<Float> {
@@ -347,6 +370,155 @@ struct PedalControlsView: View {
             get: { effect.parameters[key] ?? 0 },
             set: { engine.updateEffectParameter(effect, key: key, value: $0) }
         )
+    }
+}
+
+// MARK: - Effect Education View
+
+struct EffectEducationView: View {
+    let effectType: EffectType
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // What it does
+            EducationSection(
+                title: "What It Does",
+                icon: "questionmark.circle",
+                content: effectType.effectDescription,
+                color: effectType.color
+            )
+            
+            // How to use
+            EducationSection(
+                title: "How To Use",
+                icon: "hand.point.up",
+                content: effectType.howToUse,
+                color: .green
+            )
+            
+            // Signal chain position
+            EducationSection(
+                title: "Signal Chain Position",
+                icon: "arrow.right.circle",
+                content: effectType.signalChainPosition,
+                color: .cyan
+            )
+            
+            // Genres
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "music.note.list")
+                    .foregroundStyle(.purple)
+                    .frame(width: 20)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Common Genres")
+                        .font(.caption.bold())
+                        .foregroundStyle(.purple)
+                    
+                    FlowLayout(spacing: 4) {
+                        ForEach(effectType.commonGenres, id: \.self) { genre in
+                            Text(genre)
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.purple.opacity(0.2))
+                                .foregroundStyle(.purple)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+            
+            // Famous examples
+            EducationSection(
+                title: "Famous Examples",
+                icon: "star.fill",
+                content: effectType.famousExamples,
+                color: .yellow
+            )
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.3))
+        )
+    }
+}
+
+// MARK: - Education Section
+
+struct EducationSection: View {
+    let title: String
+    let icon: String
+    let content: String
+    let color: Color
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .foregroundStyle(color)
+                .frame(width: 20)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.bold())
+                    .foregroundStyle(color)
+                
+                Text(content)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+// MARK: - Flow Layout for Tags
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.width ?? 0, subviews: subviews, spacing: spacing)
+        return result.size
+    }
+    
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, subviews: subviews, spacing: spacing)
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + result.positions[index].x,
+                                       y: bounds.minY + result.positions[index].y),
+                          proposal: .unspecified)
+        }
+    }
+    
+    struct FlowResult {
+        var size: CGSize = .zero
+        var positions: [CGPoint] = []
+        
+        init(in maxWidth: CGFloat, subviews: Subviews, spacing: CGFloat) {
+            var x: CGFloat = 0
+            var y: CGFloat = 0
+            var rowHeight: CGFloat = 0
+            
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+                
+                if x + size.width > maxWidth && x > 0 {
+                    x = 0
+                    y += rowHeight + spacing
+                    rowHeight = 0
+                }
+                
+                positions.append(CGPoint(x: x, y: y))
+                rowHeight = max(rowHeight, size.height)
+                x += size.width + spacing
+                
+                self.size.width = max(self.size.width, x)
+            }
+            
+            self.size.height = y + rowHeight
+        }
     }
 }
 

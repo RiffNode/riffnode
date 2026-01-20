@@ -188,9 +188,9 @@ final class AudioEngineManager: AudioManaging {
             print("Audio engine started successfully")
             print("Audio engine running! Play your guitar!")
             
-            // 啟動模擬可視化（更穩定）
-            // Start simulated visualization (more stable)
-            startSimulatedVisualization()
+            // 啟動真實音頻可視化
+            // Start real audio visualization
+            startRealVisualization()
         } catch {
             print("Failed to start audio engine: \(error)")
             throw error
@@ -198,16 +198,9 @@ final class AudioEngineManager: AudioManaging {
     }
 
     func stop() {
-        // 停止模擬可視化
-        // Stop simulated visualization
-        stopSimulatedVisualization()
-        
-        // 移除可視化 tap（如果有）
-        // Remove visualization tap if any
-        if tapInstalled, let mixer = mainMixer {
-            mixer.removeTap(onBus: 0)
-            tapInstalled = false
-        }
+        // 停止可視化
+        // Stop visualization
+        stopVisualization()
         
         audioEngine?.stop()
         isRunning = false
@@ -497,68 +490,79 @@ final class AudioEngineManager: AudioManaging {
         print("syncBypassStates: Bypass states synchronized")
     }
 
-    // MARK: - Simulated Visualization
+    // MARK: - Real Audio Visualization
     
-    private var visualizationPhase: Float = 0
+    private var lastSamples: [Float] = Array(repeating: 0, count: 128)
+    private var lastLevel: Float = 0
     
-    private func startSimulatedVisualization() {
-        stopSimulatedVisualization()
-        visualizationPhase = 0
+    private func startRealVisualization() {
+        stopVisualization()
         
-        visualizationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            self?.updateSimulatedVisualization()
+        guard let mixer = mainMixer, inputNode != nil else {
+            print("Cannot start visualization: no input")
+            return
         }
         
-        print("Simulated visualization started")
+        // 安裝音頻 tap
+        let bufferSize: AVAudioFrameCount = 1024
+        
+        mixer.installTap(onBus: 0, bufferSize: bufferSize, format: nil) { [weak self] buffer, _ in
+            self?.processAudioBuffer(buffer)
+        }
+        
+        tapInstalled = true
+        print("Real audio visualization started")
     }
     
-    private func stopSimulatedVisualization() {
+    private func stopVisualization() {
+        if tapInstalled, let mixer = mainMixer {
+            mixer.removeTap(onBus: 0)
+            tapInstalled = false
+        }
         visualizationTimer?.invalidate()
         visualizationTimer = nil
     }
     
-    private func updateSimulatedVisualization() {
-        Task { @MainActor in
-            guard self.isRunning else { return }
-            
-            let samples = self.generateWaveformSamples()
-            let level = self.generateRandomLevel()
-            
-            self.waveformSamples = samples
-            self.outputLevel = level
-            self.inputLevel = level * 0.8
-            
-            self.visualizationPhase += 0.15
-            if self.visualizationPhase > 1000 {
-                self.visualizationPhase = 0
-            }
+    private nonisolated func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard buffer.frameLength > 0 else { return }
+        guard let channelData = buffer.floatChannelData?[0] else { return }
+        
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return }
+        
+        // 計算 RMS 電平
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            let sample = channelData[i]
+            sum += sample * sample
         }
-    }
-    
-    private func generateWaveformSamples() -> [Float] {
+        let rms = sqrt(sum / Float(frameCount))
+        
+        // 降採樣為 128 個樣本
         var samples = [Float](repeating: 0, count: 128)
-        let phase = visualizationPhase
+        let samplesPerBucket = max(1, frameCount / 128)
         
         for i in 0..<128 {
-            let x: Float = Float(i) / 128.0
-            let angle1: Float = (x * 4.0 + phase) * Float.pi * 2
-            let angle2: Float = (x * 8.0 + phase * 1.5) * Float.pi * 2
-            let angle3: Float = (x * 16.0 + phase * 2.0) * Float.pi * 2
-            
-            let wave1: Float = sin(angle1) * 0.4
-            let wave2: Float = sin(angle2) * 0.2
-            let wave3: Float = sin(angle3) * 0.1
-            let noise: Float = Float.random(in: -0.05...0.05)
-            
-            let combined: Float = wave1 + wave2 + wave3 + noise
-            samples[i] = abs(combined)
+            let startIdx = i * samplesPerBucket
+            var maxVal: Float = 0
+            for j in 0..<samplesPerBucket {
+                let idx = startIdx + j
+                if idx < frameCount {
+                    let absVal = abs(channelData[idx])
+                    if absVal > maxVal {
+                        maxVal = absVal
+                    }
+                }
+            }
+            samples[i] = maxVal
         }
         
-        return samples
-    }
-    
-    private func generateRandomLevel() -> Float {
-        return 0.3 + Float.random(in: 0...0.2)
+        // 更新 UI
+        DispatchQueue.main.async { [weak self] in
+            self?.waveformSamples = samples
+            self?.outputLevel = rms
+            self?.inputLevel = rms * 0.9
+        }
     }
 }
 
