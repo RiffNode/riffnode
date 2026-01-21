@@ -11,6 +11,7 @@ struct GuidedTourView: View {
     @State private var currentStep = 0
     @State private var showingEffect = false
     @State private var demoEffect: EffectType = .distortion
+    @State private var savedEffectStates: [EffectType: Bool] = [:]
 
     private let tourSteps: [TourStep] = [
         TourStep(
@@ -138,6 +139,14 @@ struct GuidedTourView: View {
             .padding(.bottom, 20)
         }
         .background(BackgroundView())
+        .onAppear {
+            // Save current effect states and bypass all effects for clean demo
+            saveAndBypassAllEffects()
+        }
+        .onDisappear {
+            // Restore effect states when tour ends
+            restoreEffectStates()
+        }
     }
 
     private func handleAction() {
@@ -151,9 +160,12 @@ struct GuidedTourView: View {
                     showingEffect = true
                     demoEffect = effectType
                 }
-                // Enable the effect in the engine
+                // Enable only this effect (others stay bypassed)
                 enableDemoEffect(effectType)
                 return
+            } else {
+                // Second tap: disable the effect before moving on
+                disableDemoEffect(effectType)
             }
         }
 
@@ -163,20 +175,65 @@ struct GuidedTourView: View {
                 showingEffect = false
                 currentStep += 1
             }
+            // Ensure previous demo effect is disabled
+            if let previousEffect = tourSteps[currentStep - 1].highlightEffect {
+                disableDemoEffect(previousEffect)
+            }
         } else {
+            // Restore effects before completing
+            restoreEffectStates()
             onComplete()
         }
     }
 
+    /// Save current effect states and bypass all effects for clean tour demo
+    private func saveAndBypassAllEffects() {
+        savedEffectStates.removeAll()
+
+        // Save current states
+        for effect in engine.effectsChain {
+            savedEffectStates[effect.type] = effect.isEnabled
+
+            // Bypass all effects that are currently enabled
+            if effect.isEnabled {
+                engine.toggleEffect(effect)
+            }
+        }
+        print("GuidedTour: Saved and bypassed all effects for clean demo")
+    }
+
+    /// Restore effect states to what they were before the tour
+    private func restoreEffectStates() {
+        for effect in engine.effectsChain {
+            let shouldBeEnabled = savedEffectStates[effect.type] ?? false
+            if effect.isEnabled != shouldBeEnabled {
+                engine.toggleEffect(effect)
+            }
+        }
+        print("GuidedTour: Restored effect states")
+    }
+
     private func enableDemoEffect(_ type: EffectType) {
-        // Find and enable the effect in the chain
+        // Find and enable only this specific effect
         if let effect = engine.effectsChain.first(where: { $0.type == type }) {
             if !effect.isEnabled {
                 engine.toggleEffect(effect)
+                print("GuidedTour: Enabled demo effect - \(type.rawValue)")
             }
         } else {
             // Add the effect if not in chain
             engine.addEffect(type)
+            print("GuidedTour: Added and enabled demo effect - \(type.rawValue)")
+        }
+    }
+
+    private func disableDemoEffect(_ type: EffectType) {
+        // Find and disable the demo effect
+        if let effect = engine.effectsChain.first(where: { $0.type == type }) {
+            if effect.isEnabled {
+                engine.toggleEffect(effect)
+                print("GuidedTour: Disabled demo effect - \(type.rawValue)")
+            }
         }
     }
 }

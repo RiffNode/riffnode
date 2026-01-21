@@ -431,6 +431,15 @@ struct TopBarView: View {
 
             Spacer()
 
+            // Audio Input Device indicator
+            AudioInputDeviceBadge(
+                deviceName: engine.currentInputDeviceName,
+                deviceType: engine.currentInputDeviceType,
+                onRefresh: {
+                    engine.refreshInputDevices()
+                }
+            )
+
             // Presets button
             Button { showingPresets = true } label: {
                 HStack(spacing: 6) {
@@ -489,6 +498,75 @@ struct EngineStatusBadge: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial)
         .clipShape(Capsule())
+    }
+}
+
+// MARK: - Audio Input Device Badge
+
+struct AudioInputDeviceBadge: View {
+    let deviceName: String
+    let deviceType: AudioInputDeviceType
+    let onRefresh: () -> Void
+
+    var body: some View {
+        Button(action: onRefresh) {
+            HStack(spacing: 8) {
+                // Device type icon
+                ZStack {
+                    Circle()
+                        .fill(deviceType.color.opacity(0.2))
+                        .frame(width: 24, height: 24)
+
+                    Image(systemName: deviceType.icon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(deviceType.color)
+                }
+
+                // Device info
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(deviceType.rawValue)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    Text(formatDeviceName(deviceName))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                }
+
+                // Signal indicator
+                Image(systemName: "waveform")
+                    .font(.system(size: 10))
+                    .foregroundStyle(deviceType == .none ? Color.secondary : Color.green)
+                    .symbolEffect(.pulse, options: .repeating, value: deviceType != .none)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(deviceType.color.opacity(0.3), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .help("Click to refresh audio input devices")
+    }
+
+    private func formatDeviceName(_ name: String) -> String {
+        // Shorten common device names for cleaner display
+        var displayName = name
+            .replacingOccurrences(of: "MacBook Pro Microphone", with: "MacBook Pro Mic")
+            .replacingOccurrences(of: "Built-in Microphone", with: "Built-in Mic")
+            .replacingOccurrences(of: "USB Audio Device", with: "USB Audio")
+
+        // Truncate if still too long
+        if displayName.count > 22 {
+            displayName = String(displayName.prefix(20)) + "..."
+        }
+        return displayName
     }
 }
 

@@ -17,6 +17,12 @@ final class AudioEngineManager: AudioManaging {
     private(set) var hasPermission = false
     var errorMessage: String?
 
+    // MARK: - Audio Input Device Properties
+
+    private(set) var currentInputDeviceName: String = "No Input"
+    private(set) var currentInputDeviceType: AudioInputDeviceType = .none
+    private(set) var availableInputDevices: [AudioInputDevice] = []
+
     // MARK: - Visualization Properties (AudioVisualizationProviding)
 
     private(set) var waveformSamples: [Float] = Array(repeating: 0, count: 128)
@@ -59,6 +65,7 @@ final class AudioEngineManager: AudioManaging {
 
     init() {
         setupDefaultEffectsChain()
+        detectAudioInputDevices()
     }
 
     private func setupDefaultEffectsChain() {
@@ -790,6 +797,190 @@ private final class EffectUnitsContainer {
             delay.bypass = bypassed
         case .reverb:
             reverb.bypass = bypassed
+        }
+    }
+}
+
+// MARK: - Audio Input Device Detection Extension
+
+extension AudioEngineManager {
+
+    /// Detect and update available audio input devices
+    func detectAudioInputDevices() {
+        #if os(macOS)
+        detectMacOSInputDevices()
+        #else
+        detectIOSInputDevices()
+        #endif
+    }
+
+    #if os(macOS)
+    private func detectMacOSInputDevices() {
+        // On macOS, use AVCaptureDevice for audio input detection
+        let discoverySession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInMicrophone, .externalUnknown],
+            mediaType: .audio,
+            position: .unspecified
+        )
+
+        var devices: [AudioInputDevice] = []
+
+        for device in discoverySession.devices {
+            let deviceType = classifyInputDevice(name: device.localizedName)
+            devices.append(AudioInputDevice(
+                id: device.uniqueID,
+                name: device.localizedName,
+                type: deviceType
+            ))
+        }
+
+        availableInputDevices = devices
+
+        // Set current device (default or first available)
+        if let defaultDevice = AVCaptureDevice.default(for: .audio) {
+            currentInputDeviceName = defaultDevice.localizedName
+            currentInputDeviceType = classifyInputDevice(name: defaultDevice.localizedName)
+        } else if let firstDevice = devices.first {
+            currentInputDeviceName = firstDevice.name
+            currentInputDeviceType = firstDevice.type
+        }
+
+        print("detectAudioInputDevices (macOS): Found \(devices.count) devices, current: \(currentInputDeviceName)")
+    }
+    #endif
+
+    #if os(iOS) || targetEnvironment(macCatalyst)
+    private func detectIOSInputDevices() {
+        let session = AVAudioSession.sharedInstance()
+
+        var devices: [AudioInputDevice] = []
+
+        // Get available inputs
+        if let availableInputs = session.availableInputs {
+            for input in availableInputs {
+                let deviceType = classifyIOSPort(portType: input.portType)
+                devices.append(AudioInputDevice(
+                    id: input.uid,
+                    name: input.portName,
+                    type: deviceType
+                ))
+            }
+        }
+
+        availableInputDevices = devices
+
+        // Get current input
+        if let currentInput = session.currentRoute.inputs.first {
+            currentInputDeviceName = currentInput.portName
+            currentInputDeviceType = classifyIOSPort(portType: currentInput.portType)
+        } else if let firstDevice = devices.first {
+            currentInputDeviceName = firstDevice.name
+            currentInputDeviceType = firstDevice.type
+        }
+
+        print("detectAudioInputDevices (iOS): Found \(devices.count) devices, current: \(currentInputDeviceName)")
+    }
+
+    private func classifyIOSPort(portType: AVAudioSession.Port) -> AudioInputDeviceType {
+        switch portType {
+        case .builtInMic:
+            return .builtInMicrophone
+        case .headsetMic:
+            return .headset
+        case .usbAudio:
+            return .usbAudioInterface
+        case .bluetoothHFP, .bluetoothA2DP, .bluetoothLE:
+            return .bluetooth
+        default:
+            return .external
+        }
+    }
+    #endif
+
+    /// Classify device based on name patterns
+    private func classifyInputDevice(name: String) -> AudioInputDeviceType {
+        let lowercaseName = name.lowercased()
+
+        // USB Audio Interfaces
+        if lowercaseName.contains("scarlett") ||
+           lowercaseName.contains("focusrite") ||
+           lowercaseName.contains("steinberg") ||
+           lowercaseName.contains("presonus") ||
+           lowercaseName.contains("behringer") ||
+           lowercaseName.contains("motu") ||
+           lowercaseName.contains("apogee") ||
+           lowercaseName.contains("universal audio") ||
+           lowercaseName.contains("usb audio") ||
+           lowercaseName.contains("audio interface") {
+            return .usbAudioInterface
+        }
+
+        // Built-in microphone
+        if lowercaseName.contains("built-in") ||
+           lowercaseName.contains("internal") ||
+           lowercaseName.contains("macbook") ||
+           lowercaseName.contains("imac") {
+            return .builtInMicrophone
+        }
+
+        // Headsets
+        if lowercaseName.contains("headset") ||
+           lowercaseName.contains("airpods") ||
+           lowercaseName.contains("earbuds") {
+            return .headset
+        }
+
+        // Bluetooth
+        if lowercaseName.contains("bluetooth") {
+            return .bluetooth
+        }
+
+        return .external
+    }
+
+    /// Refresh input device list
+    func refreshInputDevices() {
+        detectAudioInputDevices()
+    }
+}
+
+// MARK: - Audio Input Device Model
+
+struct AudioInputDevice: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let type: AudioInputDeviceType
+}
+
+// MARK: - Audio Input Device Type
+
+enum AudioInputDeviceType: String {
+    case none = "No Input"
+    case builtInMicrophone = "Built-in Mic"
+    case usbAudioInterface = "USB Interface"
+    case headset = "Headset"
+    case bluetooth = "Bluetooth"
+    case external = "External"
+
+    var icon: String {
+        switch self {
+        case .none: return "mic.slash"
+        case .builtInMicrophone: return "laptopcomputer"
+        case .usbAudioInterface: return "cable.connector"
+        case .headset: return "headphones"
+        case .bluetooth: return "wave.3.right"
+        case .external: return "mic"
+        }
+    }
+
+    var color: SwiftUI.Color {
+        switch self {
+        case .none: return .gray
+        case .builtInMicrophone: return .blue
+        case .usbAudioInterface: return .green
+        case .headset: return .orange
+        case .bluetooth: return .purple
+        case .external: return .cyan
         }
     }
 }
