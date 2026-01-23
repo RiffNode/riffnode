@@ -314,15 +314,22 @@ struct MainInterfaceView: View {
     @State private var showingPresets = false
     @State private var selectedTab: MainTab = .pedalboard
 
+    // AI Features
+    @State private var fftAnalyzer = FFTAnalyzer()
+    @State private var chordDetector = ChordDetector()
+    @State private var gestureController = VisionGestureController()
+
     enum MainTab: String, CaseIterable {
         case pedalboard = "Pedalboard"
         case parametricEQ = "Parametric EQ"
+        case aiTools = "AI Tools"
         case learnEffects = "Learn"
 
         var icon: String {
             switch self {
             case .pedalboard: return "slider.horizontal.below.square.filled.and.square"
             case .parametricEQ: return "slider.horizontal.3"
+            case .aiTools: return "brain.head.profile"
             case .learnEffects: return "text.book.closed"
             }
         }
@@ -332,6 +339,7 @@ struct MainInterfaceView: View {
         VStack(spacing: 0) {
             TopBarView(
                 engine: engine,
+                chordDetector: chordDetector,
                 showingSettings: $showingSettings,
                 showingPresets: $showingPresets
             )
@@ -340,6 +348,10 @@ struct MainInterfaceView: View {
                 // Left panel
                 VStack(spacing: 16) {
                     AudioVisualizationPanel(engine: engine)
+
+                    // Compact chord display
+                    CompactChordBadge(detector: chordDetector)
+
                     BackingTrackView(engine: engine)
                 }
                 .padding()
@@ -388,6 +400,13 @@ struct MainInterfaceView: View {
                             ParametricEQView(engine: engine)
                                 .padding()
                         }
+                    case .aiTools:
+                        AIToolsView(
+                            fftAnalyzer: fftAnalyzer,
+                            chordDetector: chordDetector,
+                            gestureController: gestureController,
+                            engine: engine
+                        )
                     case .learnEffects:
                         EffectGuideView()
                     }
@@ -401,6 +420,179 @@ struct MainInterfaceView: View {
         .sheet(isPresented: $showingPresets) {
             PresetPickerView(engine: engine, presetService: presetService)
         }
+        .onAppear {
+            setupGestureActions()
+        }
+    }
+
+    private func setupGestureActions() {
+        gestureController.onGestureDetected = { gesture in
+            handleGesture(gesture)
+        }
+    }
+
+    private func handleGesture(_ gesture: VisionGestureController.Gesture) {
+        switch gesture {
+        case .headNodDown:
+            // Next preset - cycle through effects
+            if let firstEnabled = engine.effectsChain.first(where: { $0.isEnabled }) {
+                engine.toggleEffect(firstEnabled)
+            }
+        case .headNodUp:
+            // Previous action
+            break
+        case .headTiltLeft, .headTiltRight:
+            // Toggle first effect
+            if let first = engine.effectsChain.first {
+                engine.toggleEffect(first)
+            }
+        case .mouthOpen:
+            // Could trigger wah effect
+            break
+        case .eyebrowRaise:
+            break
+        }
+    }
+}
+
+// MARK: - AI Tools View
+
+struct AIToolsView: View {
+    let fftAnalyzer: FFTAnalyzer
+    let chordDetector: ChordDetector
+    @Bindable var gestureController: VisionGestureController
+    @Bindable var engine: AudioEngineManager
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AI-Powered Tools")
+                            .font(.title2.bold())
+
+                        Text("Machine Learning & Computer Vision for Musicians")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                // Spectrum Analyzer (FFT)
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Real-Time Spectrum Analysis", systemImage: "waveform.path.ecg")
+                        .font(.headline)
+                        .foregroundStyle(.cyan)
+
+                    Text("Fast Fourier Transform (FFT) decomposes your audio into frequency components")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    SpectrumAnalyzerView(analyzer: fftAnalyzer)
+                }
+
+                // Chord Detection
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("AI Chord Detection", systemImage: "pianokeys")
+                        .font(.headline)
+                        .foregroundStyle(.yellow)
+
+                    Text("Pitch detection using autocorrelation algorithm identifies notes and chords")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    ChordDetectorView(detector: chordDetector)
+                }
+
+                // Vision Gesture Control
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Hands-Free Gesture Control", systemImage: "hand.raised.fill")
+                        .font(.headline)
+                        .foregroundStyle(.purple)
+
+                    Text("Computer Vision detects head movements - control effects while playing!")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    VisionGestureControlView(controller: gestureController) { gesture in
+                        // Handle gesture
+                        print("Gesture: \(gesture.rawValue)")
+                    }
+                }
+
+                // Educational note
+                TechExplanationCard()
+            }
+            .padding()
+        }
+        .background(Color(red: 0.05, green: 0.05, blue: 0.08))
+    }
+}
+
+// MARK: - Tech Explanation Card
+
+struct TechExplanationCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("The Science Behind", systemImage: "brain")
+                .font(.headline)
+                .foregroundStyle(.green)
+
+            VStack(alignment: .leading, spacing: 16) {
+                TechBullet(
+                    framework: "Accelerate (vDSP)",
+                    description: "Apple's high-performance math library for FFT calculations"
+                )
+
+                TechBullet(
+                    framework: "Vision Framework",
+                    description: "Real-time face landmark detection for gesture recognition"
+                )
+
+                TechBullet(
+                    framework: "Autocorrelation",
+                    description: "Signal processing algorithm to detect fundamental pitch frequency"
+                )
+
+                TechBullet(
+                    framework: "Swift Charts",
+                    description: "Native data visualization for spectrum display"
+                )
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.green.opacity(0.1))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.green.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+}
+
+struct TechBullet: View {
+    let framework: String
+    let description: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.system(size: 12))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(framework)
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+
+                Text(description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -408,8 +600,16 @@ struct MainInterfaceView: View {
 
 struct TopBarView: View {
     @Bindable var engine: AudioEngineManager
+    let chordDetector: ChordDetector?
     @Binding var showingSettings: Bool
     @Binding var showingPresets: Bool
+
+    init(engine: AudioEngineManager, chordDetector: ChordDetector? = nil, showingSettings: Binding<Bool>, showingPresets: Binding<Bool>) {
+        self.engine = engine
+        self.chordDetector = chordDetector
+        self._showingSettings = showingSettings
+        self._showingPresets = showingPresets
+    }
 
     var body: some View {
         HStack {
