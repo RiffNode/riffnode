@@ -45,6 +45,9 @@ final class FFTAnalyzer {
     private var realPart: [Float] = []
     private var imagPart: [Float] = []
 
+    /// Flag indicating if FFT setup was successful
+    private var isSetupValid: Bool = false
+
     // MARK: - Initialization
 
     init() {
@@ -63,6 +66,13 @@ final class FFTAnalyzer {
             vDSP_DFT_Direction.FORWARD
         )
 
+        // Validate setup succeeded
+        guard fftSetup != nil else {
+            print("⚠️ FFTAnalyzer: Failed to create DFT setup")
+            isSetupValid = false
+            return
+        }
+
         // Create Hanning window to reduce spectral leakage
         window = [Float](repeating: 0, count: fftSize)
         vDSP_hann_window(&window, vDSP_Length(fftSize), Int32(vDSP_HANN_NORM))
@@ -70,6 +80,10 @@ final class FFTAnalyzer {
         // Allocate buffers
         realPart = [Float](repeating: 0, count: fftSize)
         imagPart = [Float](repeating: 0, count: fftSize)
+
+        // Mark setup as valid
+        isSetupValid = true
+        print("✅ FFTAnalyzer: Setup complete (fftSize: \(fftSize), binCount: \(binCount))")
     }
 
     private func calculateFrequencyLabels() -> [Float] {
@@ -88,11 +102,21 @@ final class FFTAnalyzer {
     /// Analyze audio samples and compute frequency spectrum
     /// - Parameter samples: Audio samples (mono, Float)
     func analyze(samples: [Float]) {
-        guard samples.count >= fftSize, let setup = fftSetup else { return }
+        // Defensive: Check all preconditions
+        guard isSetupValid else { return }
+        guard samples.count >= fftSize else { return }
+        guard let setup = fftSetup else { return }
+        guard fftSize > 0, window.count == fftSize else { return }
 
-        // Take the most recent fftSize samples
+        // Take the most recent fftSize samples with bounds checking
         let startIndex = max(0, samples.count - fftSize)
-        var inputSamples = Array(samples[startIndex..<startIndex + fftSize])
+        let endIndex = min(startIndex + fftSize, samples.count)
+        guard endIndex > startIndex else { return }
+
+        var inputSamples = Array(samples[startIndex..<endIndex])
+
+        // Ensure we have exactly fftSize samples
+        guard inputSamples.count == fftSize else { return }
 
         // Apply Hanning window
         vDSP_vmul(inputSamples, 1, window, 1, &inputSamples, 1, vDSP_Length(fftSize))
@@ -252,7 +276,7 @@ final class FFTAnalyzer {
 
 import Charts
 
-struct SpectrumAnalyzerView: View {
+struct FFTSpectrumView: View {
     let analyzer: FFTAnalyzer
     @State private var showLabels = true
 
@@ -417,7 +441,7 @@ struct EducationalSpectrumView: View {
             }
 
             // Live spectrum
-            SpectrumAnalyzerView(analyzer: analyzer)
+            FFTSpectrumView(analyzer: analyzer)
 
             // Educational note about what to observe
             HStack(spacing: 8) {
@@ -462,7 +486,8 @@ struct EducationalSpectrumView: View {
 // MARK: - Preview
 
 #Preview {
-    SpectrumAnalyzerView(analyzer: FFTAnalyzer())
+    @Previewable @State var previewAnalyzer = FFTAnalyzer()
+    FFTSpectrumView(analyzer: previewAnalyzer)
         .padding()
         .background(Color.black)
 }

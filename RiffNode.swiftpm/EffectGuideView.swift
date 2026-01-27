@@ -1,77 +1,77 @@
 import SwiftUI
 
 // MARK: - Effect Guide View
+// Liquid Glass UI Design - iOS 26+
 
 struct EffectGuideView: View {
-    
+
     // MARK: - Dependencies
-    
+
     private let guideService: EffectGuideServiceProtocol
-    
+
     // MARK: - State
-    
+
     @State private var selectedCategoryIndex: Int = 0
     @State private var expandedEffectId: UUID? = nil
-    
+    @Namespace private var guideNamespace
+
     // MARK: - Initialization
-    
+
     init(guideService: EffectGuideServiceProtocol = EffectGuideService.shared) {
         self.guideService = guideService
     }
-    
+
     // MARK: - Computed Properties
-    
+
     private var categories: [any EffectCategoryProviding] {
         guideService.categories
     }
-    
+
     private var selectedCategory: (any EffectCategoryProviding)? {
         guard selectedCategoryIndex < categories.count else { return nil }
         return categories[selectedCategoryIndex]
     }
-    
+
     // MARK: - Body
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                GuideHeaderView()
+            VStack(spacing: 20) {
+                // Header
+                GlassGuideHeader()
 
                 // Sound Science educational section
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("THE SCIENCE OF SOUND")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.yellow)
-                        .padding(.horizontal)
-                        .padding(.top, 16)
-
-                    SoundScienceView()
-                }
-
-                Divider()
-                    .background(Color.white.opacity(0.1))
-                    .padding(.vertical, 16)
+                GlassSoundScienceView()
 
                 // Effect categories section
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("EFFECT CATEGORIES")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.cyan)
-                        .padding(.horizontal)
+                VStack(spacing: 16) {
+                    // Section header
+                    HStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.grid.2x2.fill")
+                                .foregroundStyle(.cyan)
+                            Text("Effect Categories")
+                                .font(.headline)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal)
 
-                    CategorySelectorView(
+                    // Category selector
+                    GlassCategorySelectorView(
                         categories: categories,
-                        selectedIndex: $selectedCategoryIndex
+                        selectedIndex: $selectedCategoryIndex,
+                        namespace: guideNamespace
                     )
 
                     if let category = selectedCategory {
-                        CategoryDescriptionView(category: category)
+                        GlassCategoryDescriptionView(category: category)
 
-                        // Inline effects list (not in separate ScrollView)
+                        // Effects list
                         LazyVStack(spacing: 12) {
                             ForEach(Array(category.effects.enumerated()), id: \.offset) { index, effect in
                                 if let effectModel = effect as? EffectInfoModel {
-                                    EffectCardView(
+                                    GlassEffectCardView(
                                         effect: effectModel,
                                         isExpanded: expandedEffectId == effectModel.id
                                     ) {
@@ -82,49 +82,53 @@ struct EffectGuideView: View {
                                 }
                             }
                         }
-                        .padding()
+                        .padding(.horizontal)
                     }
                 }
             }
+            .padding(.vertical)
         }
-        .background(Color(red: 0.05, green: 0.05, blue: 0.1))
     }
 }
 
-// MARK: - Guide Header View
+// MARK: - Glass Guide Header
 
-struct GuideHeaderView: View {
+struct GlassGuideHeader: View {
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Image(systemName: "book.fill")
-                    .foregroundStyle(.yellow)
-                Text("LEARN")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                Spacer()
-            }
+        GlassCard(tint: .yellow, cornerRadius: 16) {
+            VStack(spacing: 8) {
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "book.fill")
+                            .foregroundStyle(.yellow)
+                        Text("Learn")
+                            .font(.headline)
+                    }
+                    Spacer()
+                }
 
-            Text("Discover the science of sound and master guitar effects")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Discover the science of sound and master guitar effects")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
-        .padding()
-        .background(Color.black.opacity(0.3))
+        .padding(.horizontal)
     }
 }
 
-// MARK: - Sound Science Section
+// MARK: - Glass Sound Science Section
 
-struct SoundScienceView: View {
+struct GlassSoundScienceView: View {
     @State private var selectedTopic: SoundTopic = .waveforms
     @State private var animationPhase: Double = 0
+    @Namespace private var scienceNamespace
 
     enum SoundTopic: String, CaseIterable {
-        case waveforms = "Sound Waves"
-        case frequency = "Pitch & Frequency"
-        case clipping = "Distortion Science"
-        case time = "Time Effects"
+        case waveforms = "Waves"
+        case frequency = "Pitch"
+        case clipping = "Distortion"
+        case time = "Time"
 
         var icon: String {
             switch self {
@@ -147,71 +151,80 @@ struct SoundScienceView: View {
         var explanation: String {
             switch self {
             case .waveforms:
-                return "Sound is vibration traveling through air as waves. Guitar strings vibrate, creating pressure waves your ears interpret as sound. The shape of these waves determines the tone quality - a sine wave sounds pure, while complex waves sound rich."
+                return "Sound is vibration traveling through air as waves. Guitar strings vibrate, creating pressure waves your ears interpret as sound. The shape of these waves determines the tone quality."
             case .frequency:
-                return "Frequency is how fast sound waves vibrate, measured in Hertz (Hz). Higher frequency = higher pitch. The note A above middle C vibrates at 440 Hz. Guitar effects can shift, multiply, or modulate these frequencies."
+                return "Frequency is how fast sound waves vibrate, measured in Hertz (Hz). Higher frequency = higher pitch. Guitar effects can shift, multiply, or modulate these frequencies."
             case .clipping:
-                return "Distortion occurs when a signal is too loud for a circuit to handle cleanly. The tops of the waves get 'clipped' off, creating harmonics that give that crunchy, aggressive sound. Soft clipping = warm overdrive. Hard clipping = aggressive distortion."
+                return "Distortion occurs when a signal is too loud for a circuit to handle cleanly. The tops of the waves get 'clipped' off, creating harmonics that give that crunchy, aggressive sound."
             case .time:
-                return "Time-based effects manipulate when you hear the sound. Delay creates echoes by repeating the signal after a time gap. Reverb simulates reflections in physical spaces. Chorus uses tiny delays to create movement."
+                return "Time-based effects manipulate when you hear the sound. Delay creates echoes, reverb simulates reflections in physical spaces, and chorus uses tiny delays for movement."
             }
         }
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Topic selector
-            HStack(spacing: 8) {
-                ForEach(SoundTopic.allCases, id: \.self) { topic in
-                    Button {
-                        withAnimation(.spring(duration: 0.3)) {
-                            selectedTopic = topic
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: topic.icon)
-                                .font(.system(size: 16))
-                            Text(topic.rawValue)
-                                .font(.system(size: 9, weight: .medium))
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedTopic == topic ? topic.color.opacity(0.3) : Color.clear)
-                        )
-                        .foregroundStyle(selectedTopic == topic ? topic.color : .secondary)
+        GlassCard(tint: .yellow, cornerRadius: 16) {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "waveform.badge.magnifyingglass")
+                            .foregroundStyle(.yellow)
+                        Text("Science of Sound")
+                            .font(.headline)
                     }
-                    .buttonStyle(.plain)
+                    Spacer()
                 }
-            }
 
-            // Visualization
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.4))
+                // Topic selector with glass pills
+                GlassEffectContainer(spacing: 4) {
+                    ForEach(SoundTopic.allCases, id: \.self) { topic in
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) {
+                                selectedTopic = topic
+                            }
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: topic.icon)
+                                    .font(.system(size: 14))
+                                Text(topic.rawValue)
+                                    .font(.system(size: 10, weight: .medium))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .foregroundStyle(selectedTopic == topic ? topic.color : .secondary)
+                        }
+                        .glassEffect(
+                            selectedTopic == topic ? .regular.tint(topic.color) : .clear,
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                        .glassEffectID("topic_\(topic.rawValue)", in: scienceNamespace)
+                        .buttonStyle(.plain)
+                    }
+                }
 
-                SoundVisualization(topic: selectedTopic, phase: animationPhase)
-                    .padding()
-            }
-            .frame(height: 100)
-
-            // Explanation
-            Text(selectedTopic.explanation)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
+                // Visualization
+                ZStack {
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(selectedTopic.color.opacity(0.3), lineWidth: 1)
-                )
-        )
+                        .fill(.black.opacity(0.3))
+
+                    SoundVisualization(topic: selectedTopic, phase: animationPhase)
+                        .padding()
+                }
+                .frame(height: 100)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+                }
+
+                // Explanation
+                Text(selectedTopic.explanation)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
         .padding(.horizontal)
         .onAppear {
             withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
@@ -224,7 +237,7 @@ struct SoundScienceView: View {
 // MARK: - Sound Visualization
 
 struct SoundVisualization: View {
-    let topic: SoundScienceView.SoundTopic
+    let topic: GlassSoundScienceView.SoundTopic
     let phase: Double
 
     var body: some View {
@@ -296,7 +309,6 @@ struct SoundVisualization: View {
         clippedPath.move(to: CGPoint(x: startX, y: midY))
         for x in stride(from: startX, through: size.width, by: 2) {
             var y = midY + sin(x / size.width * .pi * 6 + time * 2) * size.height * 0.5
-            // Clip the wave
             let clipThreshold = size.height * 0.25
             y = min(max(y, midY - clipThreshold), midY + clipThreshold)
             clippedPath.addLine(to: CGPoint(x: x, y: y))
@@ -314,7 +326,7 @@ struct SoundVisualization: View {
         }
         context.stroke(originalPath, with: .color(.cyan), lineWidth: 2)
 
-        // Delayed echo (offset and faded)
+        // Delayed echo
         var delayedPath = Path()
         let offset: CGFloat = 40
         delayedPath.move(to: CGPoint(x: offset, y: midY))
@@ -326,102 +338,87 @@ struct SoundVisualization: View {
     }
 }
 
-// MARK: - Category Selector View
+// MARK: - Glass Category Selector View
 
-struct CategorySelectorView: View {
+struct GlassCategorySelectorView: View {
     let categories: [any EffectCategoryProviding]
     @Binding var selectedIndex: Int
-    
+    var namespace: Namespace.ID
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            GlassEffectContainer(spacing: 8) {
                 ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
-                    GuideCategoryButton(
-                        category: category,
-                        isSelected: selectedIndex == index
-                    ) {
+                    Button {
                         withAnimation(.spring(duration: 0.3)) {
                             selectedIndex = index
                         }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: category.icon)
+                                .font(.system(size: 12))
+                            Text(category.name)
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .foregroundStyle(selectedIndex == index ? .white : .secondary)
                     }
+                    .glassEffect(
+                        selectedIndex == index ? .regular.tint(category.color) : .clear,
+                        in: Capsule()
+                    )
+                    .glassEffectID("category_\(index)", in: namespace)
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
         }
-        .background(Color.black.opacity(0.2))
     }
 }
 
-// MARK: - Guide Category Button
+// MARK: - Glass Category Description View
 
-struct GuideCategoryButton: View {
-    let category: any EffectCategoryProviding
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 12))
-                Text(category.name)
-                    .font(.system(size: 12, weight: .medium))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? category.color : Color.gray.opacity(0.3))
-            )
-            .foregroundStyle(isSelected ? .black : .white)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Category Description View
-
-struct CategoryDescriptionView: View {
+struct GlassCategoryDescriptionView: View {
     let category: any EffectCategoryProviding
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: category.icon)
-                    .font(.title2)
-                    .foregroundStyle(category.color)
+        GlassCard(tint: category.color, cornerRadius: 12, padding: 12) {
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    Image(systemName: category.icon)
+                        .font(.title2)
+                        .foregroundStyle(category.color)
 
-                Text(category.description)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    Text(category.description)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Effect category visualization
+                GlassEffectCategoryVisualization(category: category)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Effect category visualization
-            EffectCategoryVisualization(category: category)
         }
-        .padding()
-        .background(category.color.opacity(0.1))
+        .padding(.horizontal)
     }
 }
 
-// MARK: - Effect Category Visualization
+// MARK: - Glass Effect Category Visualization
 
-struct EffectCategoryVisualization: View {
+struct GlassEffectCategoryVisualization: View {
     let category: any EffectCategoryProviding
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.black.opacity(0.4))
+                .fill(.black.opacity(0.3))
 
             TimelineView(.animation(minimumInterval: 0.03)) { timeline in
                 Canvas { context, size in
                     let time = timeline.date.timeIntervalSinceReferenceDate
                     let midY = size.height / 2
 
-                    // Draw based on category
                     switch category.name.lowercased() {
                     case "dynamics":
                         drawDynamicsEffect(context: context, size: size, midY: midY, time: time, color: category.color)
@@ -444,14 +441,14 @@ struct EffectCategoryVisualization: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text("INPUT")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 8, weight: .semibold))
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
                 Spacer()
                 VStack(alignment: .trailing) {
                     Text("OUTPUT")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 8, weight: .semibold))
                         .foregroundStyle(category.color)
                     Spacer()
                 }
@@ -459,10 +456,13 @@ struct EffectCategoryVisualization: View {
             .padding(8)
         }
         .frame(height: 80)
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+        }
     }
 
     private func drawDynamicsEffect(context: GraphicsContext, size: CGSize, midY: CGFloat, time: Double, color: Color) {
-        // Show compression - loud parts quieter, quiet parts louder
         var inputPath = Path()
         var outputPath = Path()
 
@@ -471,12 +471,10 @@ struct EffectCategoryVisualization: View {
 
         for x in stride(from: 0, through: size.width, by: 2) {
             let relativeX = x / size.width
-            // Input with varying amplitude
             let inputAmplitude = (0.3 + sin(relativeX * .pi * 2) * 0.5) * size.height * 0.4
             let inputY = midY + sin(relativeX * .pi * 6 + time * 2) * inputAmplitude
 
-            // Output with compressed amplitude
-            let compressedAmplitude = size.height * 0.25 // More consistent
+            let compressedAmplitude = size.height * 0.25
             let outputY = midY + sin(relativeX * .pi * 6 + time * 2) * compressedAmplitude
 
             inputPath.addLine(to: CGPoint(x: x, y: inputY))
@@ -488,7 +486,6 @@ struct EffectCategoryVisualization: View {
     }
 
     private func drawDistortionEffect(context: GraphicsContext, size: CGSize, midY: CGFloat, time: Double, color: Color) {
-        // Show clean vs clipped waveform
         var cleanPath = Path()
         var clippedPath = Path()
 
@@ -499,12 +496,10 @@ struct EffectCategoryVisualization: View {
             let relativeX = x / size.width
             let wave = sin(relativeX * .pi * 4 + time * 2)
 
-            // Clean signal
             let cleanY = midY + wave * size.height * 0.35
             cleanPath.addLine(to: CGPoint(x: x, y: cleanY))
 
-            // Clipped/distorted signal
-            let clippedWave = max(-0.6, min(0.6, wave * 1.5)) // Hard clip
+            let clippedWave = max(-0.6, min(0.6, wave * 1.5))
             let clippedY = midY + clippedWave * size.height * 0.35
             clippedPath.addLine(to: CGPoint(x: x, y: clippedY))
         }
@@ -514,7 +509,6 @@ struct EffectCategoryVisualization: View {
     }
 
     private func drawModulationEffect(context: GraphicsContext, size: CGSize, midY: CGFloat, time: Double, color: Color) {
-        // Show chorus/modulation - multiple slightly detuned waves
         let colors: [Color] = [color.opacity(0.3), color.opacity(0.5), color]
 
         for (i, c) in colors.enumerated() {
@@ -536,7 +530,6 @@ struct EffectCategoryVisualization: View {
     }
 
     private func drawTimeEffect(context: GraphicsContext, size: CGSize, midY: CGFloat, time: Double, color: Color) {
-        // Show delay/reverb - original signal + fading echoes
         let echoes = 4
 
         for i in (0..<echoes).reversed() {
@@ -558,7 +551,6 @@ struct EffectCategoryVisualization: View {
     }
 
     private func drawFilterEffect(context: GraphicsContext, size: CGSize, midY: CGFloat, time: Double, color: Color) {
-        // Show frequency filtering - complex wave simplified
         var fullPath = Path()
         var filteredPath = Path()
 
@@ -568,14 +560,12 @@ struct EffectCategoryVisualization: View {
         for x in stride(from: 0, through: size.width, by: 2) {
             let relativeX = x / size.width
 
-            // Full spectrum signal
             let low = sin(relativeX * .pi * 2 + time * 2) * 0.5
             let mid = sin(relativeX * .pi * 6 + time * 2) * 0.3
             let high = sin(relativeX * .pi * 16 + time * 2) * 0.2
             let fullY = midY + (low + mid + high) * size.height * 0.3
             fullPath.addLine(to: CGPoint(x: x, y: fullY))
 
-            // Filtered signal (low pass - removes high frequencies)
             let filteredY = midY + (low + mid * 0.5) * size.height * 0.3
             filteredPath.addLine(to: CGPoint(x: x, y: filteredY))
         }
@@ -598,106 +588,61 @@ struct EffectCategoryVisualization: View {
     }
 }
 
-// MARK: - Effects List View
+// MARK: - Glass Effect Card View
 
-struct EffectsListView: View {
-    let effects: [any EffectInfoProviding]
-    @Binding var expandedEffectId: UUID?
-    
-    var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(Array(effects.enumerated()), id: \.offset) { index, effect in
-                    if let effectModel = effect as? EffectInfoModel {
-                        EffectCardView(
-                            effect: effectModel,
-                            isExpanded: expandedEffectId == effectModel.id
-                        ) {
-                            withAnimation(.spring(duration: 0.3)) {
-                                expandedEffectId = expandedEffectId == effectModel.id ? nil : effectModel.id
-                            }
-                        }
-                    }
-                }
-            }
-            .padding()
-        }
-    }
-}
-
-// MARK: - Effect Card View
-
-struct EffectCardView: View {
+struct GlassEffectCardView: View {
     let effect: EffectInfoModel
     let isExpanded: Bool
     let onTap: () -> Void
-    
+    @Namespace private var cardNamespace
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            EffectCardHeader(effect: effect, isExpanded: isExpanded, onTap: onTap)
-            
-            if isExpanded {
-                EffectCardDetails(effect: effect)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+        GlassCard(tint: isExpanded ? effect.color : nil, cornerRadius: 12, padding: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                // Header
+                Button(action: onTap) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(effect.color.opacity(0.2))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: effect.icon)
+                                .font(.system(size: 18))
+                                .foregroundStyle(effect.color)
+                        }
+                        .glassEffect(.clear, in: Circle())
+
+                        Text(effect.name)
+                            .font(.headline)
+
+                        Spacer()
+
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .foregroundStyle(.secondary)
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .padding()
+                }
+                .buttonStyle(.plain)
+
+                if isExpanded {
+                    GlassEffectCardDetails(effect: effect)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(
-                            isExpanded ? effect.color.opacity(0.5) : Color.white.opacity(0.1),
-                            lineWidth: 1
-                        )
-                )
-        )
         .animation(.spring(duration: 0.3), value: isExpanded)
     }
 }
 
-// MARK: - Effect Card Header
+// MARK: - Glass Effect Card Details
 
-struct EffectCardHeader: View {
-    let effect: EffectInfoModel
-    let isExpanded: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(effect.color.opacity(0.2))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: effect.icon)
-                        .font(.system(size: 18))
-                        .foregroundStyle(effect.color)
-                }
-                
-                Text(effect.name)
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                
-                Spacer()
-                
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Effect Card Details
-
-struct EffectCardDetails: View {
+struct GlassEffectCardDetails: View {
     let effect: EffectInfoModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Divider with gradient
+            // Divider
             Rectangle()
                 .fill(
                     LinearGradient(
@@ -708,53 +653,51 @@ struct EffectCardDetails: View {
                 )
                 .frame(height: 2)
 
-            // Main content sections
-            VStack(alignment: .leading, spacing: 0) {
-                // What It Does section
-                EffectInfoSection(
+            VStack(alignment: .leading, spacing: 16) {
+                // What It Does
+                GlassEffectInfoSection(
                     icon: "gearshape.fill",
                     title: "What It Does",
                     content: effect.function,
                     accentColor: .cyan
                 )
 
-                // The Sound section
-                EffectInfoSection(
+                // The Sound
+                GlassEffectInfoSection(
                     icon: "waveform",
                     title: "The Sound",
                     content: effect.sound,
                     accentColor: .green
                 )
 
-                // How To Use section with tips styling
-                EffectTipsSection(
+                // How To Use
+                GlassEffectTipsSection(
                     icon: "lightbulb.fill",
                     title: "How To Use",
                     content: effect.howToUse,
                     accentColor: .yellow
                 )
 
-                // Signal Chain Position - visual indicator
-                EffectSignalChainSection(
+                // Signal Chain Position
+                GlassEffectSignalChainSection(
                     position: effect.signalChainPosition,
                     effectColor: effect.color
                 )
 
-                // Famous Artists section
-                EffectArtistsSection(
+                // Famous Artists
+                GlassEffectArtistsSection(
                     artists: effect.famousUsers,
                     accentColor: .purple
                 )
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
+            .padding()
         }
     }
 }
 
-// MARK: - Effect Info Section
+// MARK: - Glass Effect Info Section
 
-struct EffectInfoSection: View {
+struct GlassEffectInfoSection: View {
     let icon: String
     let title: String
     let content: String
@@ -762,30 +705,28 @@ struct EffectInfoSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Section header
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(accentColor)
 
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(accentColor)
             }
 
             Text(content)
-                .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.9))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.bottom, 16)
     }
 }
 
-// MARK: - Effect Tips Section
+// MARK: - Glass Effect Tips Section
 
-struct EffectTipsSection: View {
+struct GlassEffectTipsSection: View {
     let icon: String
     let title: String
     let content: String
@@ -799,35 +740,34 @@ struct EffectTipsSection: View {
                     .foregroundStyle(accentColor)
 
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(accentColor)
             }
 
-            // Tips with highlighted background
             HStack(alignment: .top, spacing: 8) {
                 Rectangle()
                     .fill(accentColor)
                     .frame(width: 3)
 
                 Text(content)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
-            .background(
+            .background {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(accentColor.opacity(0.1))
-            )
+            }
+            .glassEffect(.clear, in: RoundedRectangle(cornerRadius: 8))
         }
-        .padding(.bottom, 16)
     }
 }
 
-// MARK: - Effect Signal Chain Section
+// MARK: - Glass Effect Signal Chain Section
 
-struct EffectSignalChainSection: View {
+struct GlassEffectSignalChainSection: View {
     let position: String
     let effectColor: Color
 
@@ -839,26 +779,22 @@ struct EffectSignalChainSection: View {
                     .foregroundStyle(.orange)
 
                 Text("SIGNAL CHAIN POSITION")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.orange)
             }
 
             // Visual signal chain indicator
             HStack(spacing: 4) {
-                // Guitar icon
                 Image(systemName: "guitars")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
-                // Chain representation
                 ForEach(0..<5) { i in
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: 2)
                         .fill(i == getPositionIndex() ? effectColor : Color.white.opacity(0.2))
                         .frame(width: 20, height: 8)
-                        .clipShape(RoundedRectangle(cornerRadius: 2))
                 }
 
-                // Amp icon
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
@@ -867,11 +803,10 @@ struct EffectSignalChainSection: View {
             }
 
             Text(position)
-                .font(.system(size: 12))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.bottom, 16)
     }
 
     private func getPositionIndex() -> Int {
@@ -887,13 +822,13 @@ struct EffectSignalChainSection: View {
         } else if lowercased.contains("end") || lowercased.contains("last") {
             return 4
         }
-        return 2 // Default to middle
+        return 2
     }
 }
 
-// MARK: - Effect Artists Section
+// MARK: - Glass Effect Artists Section
 
-struct EffectArtistsSection: View {
+struct GlassEffectArtistsSection: View {
     let artists: String
     let accentColor: Color
 
@@ -905,59 +840,51 @@ struct EffectArtistsSection: View {
                     .foregroundStyle(accentColor)
 
                 Text("FAMOUS USERS")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(accentColor)
             }
 
-            // Artist tags
             let artistList = artists.components(separatedBy: ", ")
             FlowLayout(spacing: 6) {
                 ForEach(artistList, id: \.self) { artist in
                     Text(artist)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(
+                        .background {
                             Capsule()
-                                .fill(accentColor.opacity(0.2))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(accentColor.opacity(0.3), lineWidth: 1)
-                                )
-                        )
+                                .fill(accentColor.opacity(0.15))
+                        }
+                        .glassEffect(.clear, in: Capsule())
                 }
             }
         }
     }
 }
 
-// Note: FlowLayout is defined in EffectsChainView.swift and shared across the module
+// MARK: - Effects List View (Legacy)
 
-// MARK: - Effect Detail Row (Legacy - kept for compatibility)
-
-struct EffectDetailRow: View {
-    let title: String
-    let content: String
-    let icon: String
-    let color: Color
+struct EffectsListView: View {
+    let effects: [any EffectInfoProviding]
+    @Binding var expandedEffectId: UUID?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 20)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.caption.bold())
-                    .foregroundStyle(color)
-
-                Text(content)
-                    .font(.callout)
-                    .foregroundStyle(.white.opacity(0.9))
-                    .fixedSize(horizontal: false, vertical: true)
+        ScrollView {
+            LazyVStack(spacing: 12) {
+                ForEach(Array(effects.enumerated()), id: \.offset) { index, effect in
+                    if let effectModel = effect as? EffectInfoModel {
+                        GlassEffectCardView(
+                            effect: effectModel,
+                            isExpanded: expandedEffectId == effectModel.id
+                        ) {
+                            withAnimation(.spring(duration: 0.3)) {
+                                expandedEffectId = expandedEffectId == effectModel.id ? nil : effectModel.id
+                            }
+                        }
+                    }
+                }
             }
+            .padding()
         }
     }
 }
@@ -965,5 +892,9 @@ struct EffectDetailRow: View {
 // MARK: - Preview
 
 #Preview {
-    EffectGuideView()
+    ZStack {
+        AdaptiveBackground()
+
+        EffectGuideView()
+    }
 }

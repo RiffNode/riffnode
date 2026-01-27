@@ -1,8 +1,8 @@
 import SwiftUI
 
 // MARK: - Guided Tour View
+// Liquid Glass UI Design - iOS 26+
 // An interactive 3-minute educational experience about guitar effects
-// Designed for Swift Student Challenge - demonstrates educational value
 
 struct GuidedTourView: View {
     @Bindable var engine: AudioEngineManager
@@ -12,6 +12,7 @@ struct GuidedTourView: View {
     @State private var showingEffect = false
     @State private var demoEffect: EffectType = .distortion
     @State private var savedEffectStates: [EffectType: Bool] = [:]
+    @Namespace private var tourNamespace
 
     private let tourSteps: [TourStep] = [
         TourStep(
@@ -66,85 +67,87 @@ struct GuidedTourView: View {
     ]
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Progress indicator
-            ProgressBar(progress: Double(currentStep) / Double(tourSteps.count - 1))
+        ZStack {
+            AdaptiveBackground()
+
+            VStack(spacing: 0) {
+                // Progress indicator
+                GlassProgressBar(
+                    progress: Double(currentStep) / Double(tourSteps.count - 1),
+                    steps: tourSteps.count,
+                    currentStep: currentStep
+                )
                 .padding(.horizontal, 40)
                 .padding(.top, 20)
 
-            Spacer()
+                Spacer()
 
-            // Main content
-            let step = tourSteps[currentStep]
+                // Main content
+                let step = tourSteps[currentStep]
 
-            VStack(spacing: 24) {
-                // Effect visualization if applicable
-                if let effectType = step.highlightEffect {
-                    EffectDemoView(effectType: effectType, isActive: showingEffect)
-                        .frame(height: 150)
-                        .transition(.scale.combined(with: .opacity))
+                VStack(spacing: 24) {
+                    // Effect visualization if applicable
+                    if let effectType = step.highlightEffect {
+                        GlassEffectDemoView(effectType: effectType, isActive: showingEffect)
+                            .frame(height: 150)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    // Text content in glass card
+                    GlassCard(tint: step.highlightEffect?.color ?? .cyan, cornerRadius: 20) {
+                        VStack(spacing: 12) {
+                            Text(step.title)
+                                .font(.system(size: 28, weight: .bold))
+
+                            Text(step.subtitle)
+                                .font(.title3)
+                                .foregroundStyle(step.highlightEffect?.color ?? .cyan)
+
+                            Text(step.content)
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.top, 4)
+                        }
+                    }
+                    .padding(.horizontal, 24)
                 }
+                .id(currentStep)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
 
-                // Text content
-                VStack(spacing: 12) {
-                    Text(step.title)
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundStyle(.white)
+                Spacer()
 
-                    Text(step.subtitle)
-                        .font(.title3)
-                        .foregroundStyle(.cyan)
-
-                    Text(step.content)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                        .padding(.top, 8)
-                }
-            }
-            .id(currentStep) // Force view recreation for animation
-            .transition(.asymmetric(
-                insertion: .move(edge: .trailing).combined(with: .opacity),
-                removal: .move(edge: .leading).combined(with: .opacity)
-            ))
-
-            Spacer()
-
-            // Navigation
-            HStack(spacing: 20) {
-                if currentStep > 0 {
-                    Button("Back") {
+                // Navigation
+                GlassTourNavigation(
+                    currentStep: currentStep,
+                    actionLabel: tourSteps[currentStep].actionLabel,
+                    onBack: {
                         withAnimation(.spring(duration: 0.4)) {
                             showingEffect = false
                             currentStep -= 1
                         }
-                    }
-                    .buttonStyle(SecondaryButtonStyle())
-                }
+                    },
+                    onNext: handleAction,
+                    namespace: tourNamespace
+                )
+                .padding(.bottom, 40)
 
-                Button(tourSteps[currentStep].actionLabel) {
-                    handleAction()
+                // Skip option
+                Button("Skip Tour") {
+                    onComplete()
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 20)
             }
-            .padding(.bottom, 40)
-
-            // Skip option
-            Button("Skip Tour") {
-                onComplete()
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.bottom, 20)
         }
-        .background(BackgroundView())
         .onAppear {
-            // Save current effect states and bypass all effects for clean demo
             saveAndBypassAllEffects()
         }
         .onDisappear {
-            // Restore effect states when tour ends
             restoreEffectStates()
         }
     }
@@ -152,57 +155,45 @@ struct GuidedTourView: View {
     private func handleAction() {
         let step = tourSteps[currentStep]
 
-        // If this step has an effect to demonstrate
         if let effectType = step.highlightEffect {
             if !showingEffect {
-                // First tap: show/enable the effect
                 withAnimation(.spring(duration: 0.3)) {
                     showingEffect = true
                     demoEffect = effectType
                 }
-                // Enable only this effect (others stay bypassed)
                 enableDemoEffect(effectType)
                 return
             } else {
-                // Second tap: disable the effect before moving on
                 disableDemoEffect(effectType)
             }
         }
 
-        // Move to next step or complete
         if currentStep < tourSteps.count - 1 {
             withAnimation(.spring(duration: 0.4)) {
                 showingEffect = false
                 currentStep += 1
             }
-            // Ensure previous demo effect is disabled
             if let previousEffect = tourSteps[currentStep - 1].highlightEffect {
                 disableDemoEffect(previousEffect)
             }
         } else {
-            // Restore effects before completing
             restoreEffectStates()
             onComplete()
         }
     }
 
-    /// Save current effect states and bypass all effects for clean tour demo
     private func saveAndBypassAllEffects() {
         savedEffectStates.removeAll()
 
-        // Save current states
         for effect in engine.effectsChain {
             savedEffectStates[effect.type] = effect.isEnabled
 
-            // Bypass all effects that are currently enabled
             if effect.isEnabled {
                 engine.toggleEffect(effect)
             }
         }
-        print("GuidedTour: Saved and bypassed all effects for clean demo")
     }
 
-    /// Restore effect states to what they were before the tour
     private func restoreEffectStates() {
         for effect in engine.effectsChain {
             let shouldBeEnabled = savedEffectStates[effect.type] ?? false
@@ -210,29 +201,22 @@ struct GuidedTourView: View {
                 engine.toggleEffect(effect)
             }
         }
-        print("GuidedTour: Restored effect states")
     }
 
     private func enableDemoEffect(_ type: EffectType) {
-        // Find and enable only this specific effect
         if let effect = engine.effectsChain.first(where: { $0.type == type }) {
             if !effect.isEnabled {
                 engine.toggleEffect(effect)
-                print("GuidedTour: Enabled demo effect - \(type.rawValue)")
             }
         } else {
-            // Add the effect if not in chain
             engine.addEffect(type)
-            print("GuidedTour: Added and enabled demo effect - \(type.rawValue)")
         }
     }
 
     private func disableDemoEffect(_ type: EffectType) {
-        // Find and disable the demo effect
         if let effect = engine.effectsChain.first(where: { $0.type == type }) {
             if effect.isEnabled {
                 engine.toggleEffect(effect)
-                print("GuidedTour: Disabled demo effect - \(type.rawValue)")
             }
         }
     }
@@ -248,39 +232,52 @@ struct TourStep {
     let actionLabel: String
 }
 
-// MARK: - Progress Bar
+// MARK: - Glass Progress Bar
 
-struct ProgressBar: View {
+struct GlassProgressBar: View {
     let progress: Double
+    let steps: Int
+    let currentStep: Int
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.white.opacity(0.2))
-                    .frame(height: 4)
+        VStack(spacing: 8) {
+            // Step indicators
+            HStack(spacing: 0) {
+                ForEach(0..<steps, id: \.self) { step in
+                    Circle()
+                        .fill(step <= currentStep ? Color.cyan : Color.white.opacity(0.3))
+                        .frame(width: 8, height: 8)
+                        .overlay {
+                            if step == currentStep {
+                                Circle()
+                                    .stroke(Color.cyan, lineWidth: 2)
+                                    .frame(width: 14, height: 14)
+                            }
+                        }
 
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: [.cyan, .purple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: geometry.size.width * progress, height: 4)
-                    .animation(.spring(duration: 0.4), value: progress)
+                    if step < steps - 1 {
+                        Rectangle()
+                            .fill(step < currentStep ? Color.cyan : Color.white.opacity(0.2))
+                            .frame(height: 2)
+                    }
+                }
             }
+            .glassEffect(.clear, in: Capsule())
+
+            // Step counter
+            Text("Step \(currentStep + 1) of \(steps)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
-        .frame(height: 4)
     }
 }
 
-// MARK: - Effect Demo View
+// MARK: - Glass Effect Demo View
 
-struct EffectDemoView: View {
+struct GlassEffectDemoView: View {
     let effectType: EffectType
     let isActive: Bool
+    @Namespace private var demoNamespace
 
     var body: some View {
         VStack(spacing: 16) {
@@ -292,91 +289,145 @@ struct EffectDemoView: View {
                     .frame(width: 120, height: 120)
                     .blur(radius: isActive ? 20 : 10)
 
-                // Effect pedal representation
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: isActive
-                                ? [effectType.color, effectType.color.opacity(0.7)]
-                                : [Color.gray.opacity(0.5), Color.gray.opacity(0.3)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(width: 80, height: 100)
-                    .overlay(
-                        VStack(spacing: 8) {
-                            Circle()
-                                .fill(isActive ? Color.green : Color.red.opacity(0.5))
-                                .frame(width: 8, height: 8)
-                                .shadow(color: isActive ? .green : .clear, radius: 4)
+                // Glass effect pedal
+                VStack(spacing: 8) {
+                    // LED indicator
+                    Circle()
+                        .fill(isActive ? Color.green : Color.red.opacity(0.5))
+                        .frame(width: 10, height: 10)
+                        .shadow(color: isActive ? .green : .clear, radius: 6)
 
-                            Text(effectType.abbreviation)
-                                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white)
+                    // Effect abbreviation
+                    Text(effectType.abbreviation)
+                        .font(.system(size: 20, weight: .bold))
 
-                            Text(effectType.rawValue)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.8))
-                        }
-                    )
-                    .shadow(color: isActive ? effectType.color.opacity(0.5) : .clear, radius: 10)
+                    // Effect name
+                    Text(effectType.rawValue)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 80, height: 100)
+                .glassEffect(
+                    isActive ? .regular.tint(effectType.color) : .regular,
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+                .glassEffectID("demoPedal", in: demoNamespace)
+                .shadow(color: isActive ? effectType.color.opacity(0.5) : .clear, radius: 10)
             }
 
             // Waveform visualization
-            WaveformDemo(isActive: isActive, color: effectType.color)
+            GlassWaveformDemo(isActive: isActive, color: effectType.color)
                 .frame(height: 40)
                 .padding(.horizontal, 40)
         }
     }
 }
 
-// MARK: - Waveform Demo
+// MARK: - Glass Waveform Demo
 
-struct WaveformDemo: View {
+struct GlassWaveformDemo: View {
     let isActive: Bool
     let color: Color
 
-    @State private var phase: Double = 0
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.black.opacity(0.2))
+
+            TimelineView(.animation) { timeline in
+                Canvas { context, size in
+                    let midY = size.height / 2
+                    var path = Path()
+
+                    let date = timeline.date.timeIntervalSinceReferenceDate
+                    let animatedPhase = isActive ? date * 3 : 0
+
+                    path.move(to: CGPoint(x: 0, y: midY))
+
+                    for x in stride(from: 0, through: size.width, by: 2) {
+                        let relativeX = Double(x / size.width)
+                        let amplitude = isActive ? Double(size.height) * 0.35 : Double(size.height) * 0.1
+
+                        let wave1 = sin(relativeX * Double.pi * 4 + animatedPhase)
+                        let wave2 = isActive ? sin(relativeX * Double.pi * 8 + animatedPhase * 1.5) * 0.3 : 0
+
+                        let y = Double(midY) + (wave1 + wave2) * amplitude
+                        path.addLine(to: CGPoint(x: x, y: y))
+                    }
+
+                    context.stroke(
+                        path,
+                        with: .linearGradient(
+                            Gradient(colors: [color.opacity(0.8), color]),
+                            startPoint: .zero,
+                            endPoint: CGPoint(x: size.width, y: 0)
+                        ),
+                        lineWidth: 2
+                    )
+                }
+            }
+            .padding(4)
+        }
+        .glassEffect(.clear, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+// MARK: - Glass Tour Navigation
+
+struct GlassTourNavigation: View {
+    let currentStep: Int
+    let actionLabel: String
+    let onBack: () -> Void
+    let onNext: () -> Void
+    var namespace: Namespace.ID
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            Canvas { context, size in
-                let midY = size.height / 2
-                var path = Path()
-
-                let date = timeline.date.timeIntervalSinceReferenceDate
-                let animatedPhase = isActive ? date * 3 : 0
-
-                path.move(to: CGPoint(x: 0, y: midY))
-
-                for x in stride(from: 0, through: size.width, by: 2) {
-                    let relativeX = Double(x / size.width)
-                    let amplitude = isActive ? Double(size.height) * 0.4 : Double(size.height) * 0.1
-
-                    // Create different wave shapes based on whether active
-                    let wave1 = sin(relativeX * Double.pi * 4 + animatedPhase)
-                    let wave2 = isActive ? sin(relativeX * Double.pi * 8 + animatedPhase * 1.5) * 0.3 : 0
-
-                    let y = Double(midY) + (wave1 + wave2) * amplitude
-                    path.addLine(to: CGPoint(x: x, y: y))
+        GlassEffectContainer(spacing: 12) {
+            if currentStep > 0 {
+                Button(action: onBack) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Back")
+                            .font(.headline)
+                    }
+                    .frame(minWidth: 80)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
                 }
-
-                context.stroke(
-                    path,
-                    with: .linearGradient(
-                        Gradient(colors: [color.opacity(0.8), color]),
-                        startPoint: .zero,
-                        endPoint: CGPoint(x: size.width, y: 0)
-                    ),
-                    lineWidth: 2
-                )
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffectID("backButton", in: namespace)
             }
+
+            Button(action: onNext) {
+                HStack(spacing: 6) {
+                    Text(actionLabel)
+                        .font(.headline)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .frame(minWidth: 140)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 20)
+                .background {
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [.cyan, .cyan.opacity(0.8)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                }
+            }
+            .glassEffect(.clear.interactive(), in: Capsule())
+            .glassEffectID("nextButton", in: namespace)
         }
     }
 }
 
-// MARK: - Button Styles
+// MARK: - Legacy Button Styles (for compatibility)
 
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -392,7 +443,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                     endPoint: .bottom
                 )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }
@@ -402,11 +453,11 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(.white.opacity(0.8))
+            .foregroundStyle(.secondary)
             .frame(minWidth: 100)
             .padding(.vertical, 14)
-            .background(Color.white.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }

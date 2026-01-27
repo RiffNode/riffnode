@@ -2,6 +2,7 @@ import SwiftUI
 import Charts
 
 // MARK: - Visualization Views
+// Liquid Glass UI Design - iOS 26+
 
 // MARK: - Real-time Waveform View
 
@@ -28,7 +29,7 @@ struct WaveformView: View {
                     )
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [color.opacity(0.9), color.opacity(0.2)],
+                            colors: [color.opacity(0.8), color.opacity(0.2)],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -37,7 +38,7 @@ struct WaveformView: View {
                 }
 
                 RuleMark(y: .value("Center", 0))
-                    .foregroundStyle(color.opacity(0.4))
+                    .foregroundStyle(color.opacity(0.3))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
             .chartXAxis(.hidden)
@@ -47,7 +48,7 @@ struct WaveformView: View {
     }
 }
 
-// MARK: - Level Meter View
+// MARK: - Glass Level Meter View
 
 struct LevelMeterView: View {
     let level: Float
@@ -70,36 +71,35 @@ struct LevelMeterView: View {
     var body: some View {
         VStack(spacing: 6) {
             Text(label)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
-                    // Background
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.black.opacity(0.4))
+                    // Glass background
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(.ultraThinMaterial)
 
                     // Level indicator with gradient
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: 6)
                         .fill(
                             LinearGradient(
                                 colors: [
                                     meterColor.opacity(0.9),
-                                    meterColor.opacity(0.6)
+                                    meterColor.opacity(0.5)
                                 ],
                                 startPoint: .bottom,
                                 endPoint: .top
                             )
                         )
                         .frame(height: geometry.size.height * normalizedLevel)
-                        .shadow(color: meterColor.opacity(0.5), radius: 4)
 
-                    // Peak markers
+                    // Subtle segment markers
                     VStack(spacing: 0) {
-                        ForEach(0..<12, id: \.self) { _ in
+                        ForEach(0..<10, id: \.self) { _ in
                             Spacer()
                             Rectangle()
-                                .fill(Color.white.opacity(0.1))
+                                .fill(Color.white.opacity(0.05))
                                 .frame(height: 1)
                         }
                     }
@@ -107,20 +107,21 @@ struct LevelMeterView: View {
                     // Clip indicator
                     if normalizedLevel > 0.95 {
                         VStack {
-                            RoundedRectangle(cornerRadius: 2)
+                            RoundedRectangle(cornerRadius: 3)
                                 .fill(Color.red)
                                 .frame(height: 4)
-                                .shadow(color: .red, radius: 4)
+                                .shadow(color: .red.opacity(0.5), radius: 4)
                             Spacer()
                         }
                     }
                 }
             }
             .frame(width: 24)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             // dB label
             Text(String(format: "%.0f", 20 * log10(max(level, 0.001))))
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .font(.system(size: 8, weight: .semibold).monospacedDigit())
                 .foregroundStyle(meterColor)
         }
     }
@@ -147,112 +148,77 @@ struct AudioVisualizationPanel: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                HStack(spacing: 8) {
-                    Image(systemName: "waveform.circle.fill")
-                        .foregroundStyle(.cyan)
-                    Text("VISUALIZER")
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                }
+        GlassCard(tint: .cyan, cornerRadius: 16) {
+            VStack(spacing: 12) {
+                // Header
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "waveform.circle.fill")
+                            .foregroundStyle(.cyan)
+                        Text("Visualizer")
+                            .font(.headline)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                // Mode picker
-                HStack(spacing: 4) {
-                    ForEach(VisualizationMode.allCases, id: \.self) { mode in
-                        Button {
-                            withAnimation(.spring(duration: 0.2)) {
-                                visualizationMode = mode
+                    // Mode picker with glass pills
+                    GlassEffectContainer(spacing: 2) {
+                        ForEach(VisualizationMode.allCases, id: \.self) { mode in
+                            Button {
+                                withAnimation(.spring(duration: 0.25)) {
+                                    visualizationMode = mode
+                                }
+                            } label: {
+                                Image(systemName: mode.icon)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .frame(width: 32, height: 28)
+                                    .foregroundStyle(
+                                        visualizationMode == mode ? .cyan : .secondary
+                                    )
                             }
-                        } label: {
-                            Image(systemName: mode.icon)
-                                .font(.system(size: 12))
-                                .frame(width: 32, height: 28)
-                                .background(
-                                    visualizationMode == mode
-                                        ? Color.cyan.opacity(0.3)
-                                        : Color.clear
-                                )
-                                .foregroundStyle(
-                                    visualizationMode == mode ? .cyan : .secondary
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(4)
-                .background(Color.black.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .padding()
-
-            // Visualization content
-            HStack(spacing: 12) {
-                // Input level meter
-                LevelMeterView(level: engine.inputLevel, label: "IN", color: .green)
-
-                // Main visualization
-                ZStack {
-                    // Background glow
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.black.opacity(0.5))
-
-                    // Visualization
-                    Group {
-                        switch visualizationMode {
-                        case .waveform:
-                            WaveformView(samples: engine.waveformSamples)
-                                .padding(8)
-                        case .bars:
-                            BarVisualizationView(samples: engine.waveformSamples)
-                        case .circular:
-                            CircularVisualizationView(samples: engine.waveformSamples)
+                            .glassEffect(
+                                visualizationMode == mode ? .regular.tint(.cyan) : .clear,
+                                in: RoundedRectangle(cornerRadius: 6)
+                            )
+                            .buttonStyle(.plain)
                         }
                     }
-
-                    // Scanline effect
-                    ScanlineOverlay()
-                        .opacity(0.03)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.cyan.opacity(0.2), lineWidth: 1)
-                )
 
-                // Output level meter
-                LevelMeterView(level: engine.outputLevel, label: "OUT", color: .cyan)
-            }
-            .frame(height: 150)
-            .padding(.horizontal)
-            .padding(.bottom)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Color.cyan.opacity(0.3), lineWidth: 1)
-                )
-        )
-    }
-}
+                // Visualization content
+                HStack(spacing: 12) {
+                    // Input level meter
+                    LevelMeterView(level: engine.inputLevel, label: "IN", color: .green)
 
-// MARK: - Scanline Overlay
+                    // Main visualization
+                    ZStack {
+                        // Glass background for visualization area
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(.black.opacity(0.3))
 
-struct ScanlineOverlay: View {
-    var body: some View {
-        Canvas { context, size in
-            guard size.height > 0 && size.width > 0 else { return }
-            for y in stride(from: 0, through: size.height, by: 2) {
-                var path = Path()
-                path.move(to: CGPoint(x: 0, y: y))
-                path.addLine(to: CGPoint(x: size.width, y: y))
-                context.stroke(path, with: .color(.white), lineWidth: 1)
+                        // Visualization
+                        Group {
+                            switch visualizationMode {
+                            case .waveform:
+                                WaveformView(samples: engine.waveformSamples)
+                                    .padding(8)
+                            case .bars:
+                                BarVisualizationView(samples: engine.waveformSamples)
+                            case .circular:
+                                CircularVisualizationView(samples: engine.waveformSamples)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(.white.opacity(0.1), lineWidth: 1)
+                    }
+
+                    // Output level meter
+                    LevelMeterView(level: engine.outputLevel, label: "OUT", color: .cyan)
+                }
+                .frame(height: 140)
             }
         }
     }
@@ -307,18 +273,14 @@ struct BarVisualizationView: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(hue: hue, saturation: 0.8, brightness: 0.95),
-                                        Color(hue: hue, saturation: 0.9, brightness: 0.7)
+                                        Color(hue: hue, saturation: 0.7, brightness: 0.95),
+                                        Color(hue: hue, saturation: 0.8, brightness: 0.7)
                                     ],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
                             .frame(height: height)
-                            .shadow(
-                                color: Color(hue: hue, saturation: 0.8, brightness: 0.9).opacity(0.4),
-                                radius: sample > 0.5 ? 4 : 0
-                            )
                         Spacer()
                     }
                 }
@@ -392,7 +354,7 @@ struct CircularVisualizationView: View {
                 barPath.addLine(to: CGPoint(x: endX, y: endY))
 
                 let hue: Double = Double(index) / Double(sampleCount) * 0.5 + 0.45
-                let color = Color(hue: hue, saturation: 0.75, brightness: 0.95)
+                let color = Color(hue: hue, saturation: 0.65, brightness: 0.9)
                 context.stroke(barPath, with: .color(color), lineWidth: 3)
 
                 // Build outer path
@@ -406,24 +368,24 @@ struct CircularVisualizationView: View {
             // Close outer path
             outerPath.closeSubpath()
 
-            // Draw filled area with gradient
+            // Draw filled area with subtle color
             context.fill(
                 outerPath,
-                with: .color(Color.cyan.opacity(0.1))
+                with: .color(Color.cyan.opacity(0.08))
             )
 
-            // Center circle with glow
+            // Center circle with subtle glow
             let innerGlowRect = CGRect(x: centerX - 25, y: centerY - 25, width: 50, height: 50)
             let innerGlow = Path(ellipseIn: innerGlowRect)
-            context.fill(innerGlow, with: .color(.cyan.opacity(0.15)))
+            context.fill(innerGlow, with: .color(.cyan.opacity(0.1)))
 
             let circleRect = CGRect(x: centerX - 15, y: centerY - 15, width: 30, height: 30)
             let centerCircle = Path(ellipseIn: circleRect)
-            context.fill(centerCircle, with: .color(.cyan.opacity(0.6)))
+            context.fill(centerCircle, with: .color(.cyan.opacity(0.5)))
 
             let innerCircleRect = CGRect(x: centerX - 8, y: centerY - 8, width: 16, height: 16)
             let innerCircle = Path(ellipseIn: innerCircleRect)
-            context.fill(innerCircle, with: .color(.black.opacity(0.5)))
+            context.fill(innerCircle, with: .color(.black.opacity(0.4)))
         }
     }
 }
@@ -431,27 +393,27 @@ struct CircularVisualizationView: View {
 // MARK: - Preview
 
 #Preview {
-    VStack(spacing: 20) {
-        AudioVisualizationPanel(engine: AudioEngineManager())
-            .frame(height: 220)
+    ZStack {
+        AdaptiveBackground()
 
-        HStack(spacing: 20) {
-            WaveformView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
-                .frame(height: 80)
-                .background(Color.black.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        VStack(spacing: 20) {
+            AudioVisualizationPanel(engine: AudioEngineManager())
+                .frame(height: 220)
 
-            BarVisualizationView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
-                .frame(height: 80)
-                .background(Color.black.opacity(0.3))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+            HStack(spacing: 20) {
+                WaveformView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
+                    .frame(height: 80)
+                    .glassCard(cornerRadius: 12, padding: 8)
+
+                BarVisualizationView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
+                    .frame(height: 80)
+                    .glassCard(cornerRadius: 12, padding: 8)
+            }
+
+            CircularVisualizationView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
+                .frame(height: 180)
+                .glassCard(cornerRadius: 12, padding: 8)
         }
-
-        CircularVisualizationView(samples: (0..<128).map { _ in Float.random(in: 0...0.8) })
-            .frame(height: 180)
-            .background(Color.black.opacity(0.3))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding()
     }
-    .padding()
-    .background(Color.black)
 }

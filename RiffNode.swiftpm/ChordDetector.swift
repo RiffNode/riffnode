@@ -127,20 +127,33 @@ final class ChordDetector {
 
     private func detectPitchAutocorrelation(samples: [Float]) -> Float {
         let count = samples.count
+
+        // Defensive: ensure we have enough samples
+        guard count >= 2048 else { return 0 }
+
         let minLag = Int(sampleRate / maxFrequency)
         let maxLag = Int(sampleRate / minFrequency)
 
-        guard maxLag < count else { return 0 }
+        // Defensive: ensure valid lag range
+        guard minLag > 0, maxLag > minLag, maxLag < count else { return 0 }
 
-        var autocorrelation = [Float](repeating: 0, count: maxLag - minLag)
+        let autocorrelationSize = maxLag - minLag
+        guard autocorrelationSize > 0 else { return 0 }
 
-        // Calculate autocorrelation for each lag
+        var autocorrelation = [Float](repeating: 0, count: autocorrelationSize)
+
+        // Calculate autocorrelation for each lag with bounds checking
         for lag in minLag..<maxLag {
+            let index = lag - minLag
+            guard index >= 0, index < autocorrelation.count else { continue }
+
             var sum: Float = 0
-            for i in 0..<(count - lag) {
+            let maxI = count - lag
+            for i in 0..<maxI {
+                guard i < count, i + lag < count else { break }
                 sum += samples[i] * samples[i + lag]
             }
-            autocorrelation[lag - minLag] = sum
+            autocorrelation[index] = sum
         }
 
         // Find the peak in autocorrelation (fundamental frequency)
@@ -447,58 +460,51 @@ struct TuningIndicator: View {
 }
 
 // MARK: - Compact Chord Badge (for top bar)
+// Liquid Glass UI Design - iOS 26+
 
 struct CompactChordBadge: View {
     let detector: ChordDetector
 
     var body: some View {
-        HStack(spacing: 8) {
-            // AI indicator
-            ZStack {
-                Circle()
-                    .fill(Color.yellow.opacity(0.2))
-                    .frame(width: 24, height: 24)
+        HStack(spacing: 12) {
+            // Chord icon
+            Image(systemName: "music.note")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.purple)
 
-                Image(systemName: "waveform.badge.mic")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.yellow)
-            }
-
-            // Note/Chord
-            VStack(alignment: .leading, spacing: 1) {
-                Text("AI Detect")
-                    .font(.system(size: 8, weight: .medium))
+            // Detected chord
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Detected Chord")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
 
-                Text(detector.confidence > 0.3 ? detector.detectedChord : "—")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.primary)
+                Text(detector.detectedChord.isEmpty ? "—" : detector.detectedChord)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(detector.detectedChord.isEmpty ? .secondary : .primary)
             }
 
-            // Tuning dot
-            Circle()
-                .fill(detector.isInTune ? Color.green : Color.orange)
-                .frame(width: 6, height: 6)
+            Spacer()
+
+            // Confidence indicator
+            if !detector.detectedChord.isEmpty {
+                Text(String(format: "%.0f%%", detector.confidence * 100))
+                    .font(.caption.weight(.semibold).monospacedDigit())
+                    .foregroundStyle(.purple)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .strokeBorder(Color.yellow.opacity(0.3), lineWidth: 1)
-                )
-        )
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: Capsule())
     }
 }
 
 // MARK: - Preview
 
 #Preview {
+    @Previewable @State var previewDetector = ChordDetector()
     VStack(spacing: 20) {
-        ChordDetectorView(detector: ChordDetector())
-        CompactChordBadge(detector: ChordDetector())
+        ChordDetectorView(detector: previewDetector)
+        CompactChordBadge(detector: previewDetector)
     }
     .padding()
     .background(Color.black)

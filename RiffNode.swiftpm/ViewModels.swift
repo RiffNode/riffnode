@@ -296,8 +296,6 @@ final class BackingTrackViewModel {
     var isLoading = false
     var reelRotation: Double = 0
 
-    private var rotationTimer: Timer?
-
     // MARK: - Dependencies
 
     private let backingTrackManager: BackingTrackManaging
@@ -366,20 +364,27 @@ final class BackingTrackViewModel {
 
     // MARK: - Reel Animation
 
+    private var reelAnimationTask: Task<Void, Never>?
+
     func startReelAnimation() {
-        rotationTimer?.invalidate()
-        rotationTimer = Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                withAnimation(.linear(duration: 0.03)) {
-                    self?.reelRotation += 2
-                }
+        stopReelAnimation()
+        reelAnimationTask = Task {
+            await runReelAnimationLoop()
+        }
+    }
+
+    private func runReelAnimationLoop() async {
+        while !Task.isCancelled && isPlaying {
+            withAnimation(.linear(duration: 0.03)) {
+                reelRotation += 2
             }
+            try? await Task.sleep(for: .milliseconds(30))
         }
     }
 
     func stopReelAnimation() {
-        rotationTimer?.invalidate()
-        rotationTimer = nil
+        reelAnimationTask?.cancel()
+        reelAnimationTask = nil
     }
 }
 

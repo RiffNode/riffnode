@@ -3,6 +3,29 @@ import AVFoundation
 import SwiftUI
 import Observation
 
+// MARK: - Extracted Face Data (Sendable for cross-isolation transfer)
+
+private struct ExtractedFaceData: Sendable {
+    let pitch: Float
+    let yaw: Float
+    let roll: Float
+    let mouthOpenness: Float?
+}
+
+// MARK: - Global Face Data Handler
+// This avoids capturing MainActor-isolated self in nonisolated callbacks
+// Using @MainActor isolation for the shared instance to ensure thread safety
+
+@MainActor
+private var visionControllerInstance: VisionGestureController?
+
+private func visionProcessFaceData(_ data: ExtractedFaceData) {
+    // Dispatch to main actor to safely access the shared instance
+    Task { @MainActor in
+        visionControllerInstance?.processFaceData(data)
+    }
+}
+
 // MARK: - Vision Gesture Controller
 // Hands-free control using head movements and facial gestures
 // Perfect accessibility feature - musicians can control effects while playing
@@ -67,20 +90,6 @@ final class VisionGestureController: NSObject {
     private var videoOutput: AVCaptureVideoDataOutput?
     private let processingQueue = DispatchQueue(label: "com.riffnode.vision", qos: .userInteractive)
 
-    // Face detection request
-    private var faceDetectionRequest: VNDetectFaceLandmarksRequest?
-
-    private func createFaceDetectionRequest() -> VNDetectFaceLandmarksRequest {
-        let request = VNDetectFaceLandmarksRequest { [weak self] request, error in
-            guard let self = self else { return }
-            Task { @MainActor in
-                self.handleFaceDetection(request: request, error: error)
-            }
-        }
-        request.revision = VNDetectFaceLandmarksRequestRevision3
-        return request
-    }
-
     // MARK: - Tracking State for Gesture Detection
 
     private var pitchHistory: [Float] = []
@@ -101,6 +110,8 @@ final class VisionGestureController: NSObject {
 
     override init() {
         super.init()
+        // Register as the shared instance for global callback
+        visionControllerInstance = self
     }
 
     // MARK: - Permission
@@ -122,7 +133,7 @@ final class VisionGestureController: NSObject {
     // MARK: - Start/Stop
 
     func start() async throws {
-        guard hasPermission else {
+        if !hasPermission {
             await requestCameraPermission()
             guard hasPermission else {
                 throw VisionError.permissionDenied
@@ -186,41 +197,20 @@ final class VisionGestureController: NSObject {
 
     // MARK: - Face Detection Handler
 
-    private func handleFaceDetection(request: VNRequest, error: Error?) {
-        guard error == nil,
-              let results = request.results as? [VNFaceObservation],
-              let face = results.first else {
-            Task { @MainActor in
-                self.faceDetected = false
-            }
-            return
-        }
+    fileprivate func processFaceData(_ data: ExtractedFaceData) {
+        faceDetected = true
 
-        Task { @MainActor in
-            self.faceDetected = true
-            self.processFaceObservation(face)
-        }
-    }
-
-    // MARK: - Process Face Data
-
-    private func processFaceObservation(_ face: VNFaceObservation) {
-        // Get head pose angles
-        let pitch = face.pitch?.floatValue ?? 0 // Nod up/down
-        let yaw = face.yaw?.floatValue ?? 0     // Turn left/right
-        let roll = face.roll?.floatValue ?? 0   // Tilt left/right
-
-        // Update history
-        updateHistory(&pitchHistory, with: pitch)
-        updateHistory(&yawHistory, with: yaw)
-        updateHistory(&rollHistory, with: roll)
+        // Update history with head pose angles
+        updateHistory(&pitchHistory, with: data.pitch)
+        updateHistory(&yawHistory, with: data.yaw)
+        updateHistory(&rollHistory, with: data.roll)
 
         // Detect head gestures
         detectHeadGestures()
 
         // Process mouth openness for Wah control
-        if let landmarks = face.landmarks {
-            processMouthOpenness(landmarks: landmarks)
+        if let mouthOpenness = data.mouthOpenness {
+            processMouthOpenness(mouthOpenness)
         }
     }
 
@@ -270,23 +260,7 @@ final class VisionGestureController: NSObject {
 
     // MARK: - Mouth Detection (for Wah Effect)
 
-    private func processMouthOpenness(landmarks: VNFaceLandmarks2D) {
-        guard let innerLips = landmarks.innerLips else { return }
-
-        // Calculate mouth openness from inner lip points
-        let innerPoints = innerLips.normalizedPoints
-
-        guard innerPoints.count >= 6 else { return }
-
-        // Top and bottom of inner lips
-        let topLip = innerPoints[0] // Top center
-        let bottomLip = innerPoints[3] // Bottom center (approximation)
-
-        let mouthHeight = abs(topLip.y - bottomLip.y)
-
-        // Normalize (typical range 0.01 to 0.1)
-        let normalizedOpenness = min(1.0, max(0, (Float(mouthHeight) - 0.02) / 0.08))
-
+    private func processMouthOpenness(_ normalizedOpenness: Float) {
         // Smooth the value
         updateHistory(&mouthHistory, with: normalizedOpenness)
         let smoothedOpenness = mouthHistory.reduce(0, +) / Float(mouthHistory.count)
@@ -333,16 +307,40 @@ extension VisionGestureController: AVCaptureVideoDataOutputSampleBufferDelegate 
         let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
 
         // Create request on background thread
-        let request = VNDetectFaceLandmarksRequest { [weak self] request, error in
-            guard let self = self else { return }
-            Task { @MainActor in
-                self.handleFaceDetection(request: request, error: error)
-            }
-        }
+        let request = VNDetectFaceLandmarksRequest()
         request.revision = VNDetectFaceLandmarksRequestRevision3
 
         do {
             try requestHandler.perform([request])
+
+            // Extract all data on background thread before crossing isolation boundary
+            let extractedData: ExtractedFaceData? = {
+                guard let face = request.results?.first else { return nil }
+
+                let pitch = face.pitch?.floatValue ?? 0
+                let yaw = face.yaw?.floatValue ?? 0
+                let roll = face.roll?.floatValue ?? 0
+
+                // Extract mouth openness from landmarks
+                var mouthOpenness: Float? = nil
+                if let innerLips = face.landmarks?.innerLips {
+                    let innerPoints = innerLips.normalizedPoints
+                    if innerPoints.count >= 6 {
+                        let topLip = innerPoints[0]
+                        let bottomLip = innerPoints[3]
+                        let mouthHeight = abs(topLip.y - bottomLip.y)
+                        mouthOpenness = min(1.0, max(0, (Float(mouthHeight) - 0.02) / 0.08))
+                    }
+                }
+
+                return ExtractedFaceData(pitch: pitch, yaw: yaw, roll: roll, mouthOpenness: mouthOpenness)
+            }()
+
+            // Post face data to be processed on main actor
+            // Use a global callback to avoid capturing MainActor-isolated self
+            if let data = extractedData {
+                visionProcessFaceData(data)
+            }
         } catch {
             print("VisionGestureController: Face detection error - \(error)")
         }
@@ -544,8 +542,9 @@ struct MouthIndicator: View {
 // MARK: - Preview
 
 #Preview {
+    @Previewable @State var previewController = VisionGestureController()
     VisionGestureControlView(
-        controller: VisionGestureController(),
+        controller: previewController,
         onGestureAction: { _ in }
     )
     .padding()

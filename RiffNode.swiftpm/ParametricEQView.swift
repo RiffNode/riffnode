@@ -1,7 +1,8 @@
 import SwiftUI
 
 // MARK: - Parametric EQ View
-// GarageBand-inspired parametric equalizer with smooth curves and professional look
+// Liquid Glass UI Design - iOS 26+
+// Modern parametric equalizer with glass styling and smooth curves
 
 struct ParametricEQView: View {
     @Bindable var engine: AudioEngineManager
@@ -10,135 +11,180 @@ struct ParametricEQView: View {
     @State private var isAnalyzerActive = true
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with analyzer toggle
-            GarageBandEQHeader(
+        VStack(spacing: 16) {
+            // Header with analyzer toggle and presets
+            GlassEQHeader(
                 isAnalyzerActive: $isAnalyzerActive,
+                bands: $bands,
                 onReset: { bands = EQBand.defaultBands }
             )
 
-            // Main EQ Display - GarageBand style
-            ZStack {
-                // Dark gradient background like GarageBand
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.08),
-                        Color(red: 0.08, green: 0.08, blue: 0.12)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+            // Main EQ Display with glass styling
+            GlassCard(tint: .green, cornerRadius: 16, padding: 0) {
+                ZStack {
+                    // Subtle gradient background
+                    LinearGradient(
+                        colors: [
+                            Color.black.opacity(0.3),
+                            Color.black.opacity(0.2)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
 
-                // Spectrum analyzer background (if active)
-                if isAnalyzerActive {
-                    SpectrumAnalyzerView()
-                        .opacity(0.4)
+                    // Spectrum analyzer background (if active)
+                    if isAnalyzerActive {
+                        SpectrumAnalyzerView()
+                            .opacity(0.3)
+                    }
+
+                    // Grid
+                    GlassEQGridView()
+
+                    // Smooth frequency response curve with fill
+                    GlassEQCurveView(bands: bands, selectedBand: selectedBand)
+
+                    // Draggable band nodes
+                    GlassEQBandNodes(
+                        bands: $bands,
+                        selectedBand: $selectedBand
+                    )
                 }
-
-                // Grid with GarageBand styling
-                GarageBandGridView()
-
-                // Smooth frequency response curve with fill
-                GarageBandCurveView(bands: bands, selectedBand: selectedBand)
-
-                // Draggable band nodes
-                GarageBandBandNodes(
-                    bands: $bands,
-                    selectedBand: $selectedBand
-                )
+                .frame(height: 260)
             }
-            .frame(height: 280)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-            )
 
             // Band selector strip
-            GarageBandBandStrip(bands: $bands, selectedBand: $selectedBand)
+            GlassEQBandStrip(bands: $bands, selectedBand: $selectedBand)
 
             // Selected band controls
             if let selected = selectedBand {
-                GarageBandBandControls(band: $bands[selected])
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                GlassEQBandControls(band: $bands[selected])
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.1, green: 0.1, blue: 0.12))
-                .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
-        )
         .animation(.spring(duration: 0.25), value: selectedBand)
     }
 }
 
-// MARK: - GarageBand EQ Header
+// MARK: - Glass EQ Header
 
-struct GarageBandEQHeader: View {
+struct GlassEQHeader: View {
     @Binding var isAnalyzerActive: Bool
+    @Binding var bands: [EQBand]
     let onReset: () -> Void
+    @State private var showPresets = false
 
     var body: some View {
         HStack {
             // EQ Icon and title
-            HStack(spacing: 8) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(LinearGradient(
-                            colors: [.green, .green.opacity(0.7)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                        .frame(width: 24, height: 24)
-
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.black)
-                }
-
-                Text("EQ")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.white)
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundStyle(.green)
+                Text("Parametric EQ")
+                    .font(.headline)
             }
 
             Spacer()
 
-            // Analyzer toggle
-            Button {
-                isAnalyzerActive.toggle()
-            } label: {
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(isAnalyzerActive ? Color.green : Color.gray)
-                        .frame(width: 6, height: 6)
-                    Text("Analyzer")
-                        .font(.system(size: 11, weight: .medium))
+            // Controls
+            HStack(spacing: 8) {
+                // Preset picker
+                Button {
+                    showPresets.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "list.bullet")
+                            .font(.system(size: 11))
+                        Text("Presets")
+                    }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.1))
-                .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(isAnalyzerActive ? .green : .secondary)
+                .buttonStyle(GlassButtonStyle(tint: .green, isSmall: true))
+                .popover(isPresented: $showPresets) {
+                    GlassEQPresetPicker(bands: $bands, isPresented: $showPresets)
+                }
 
-            // Reset button
-            Button {
-                onReset()
-            } label: {
-                Text("Reset")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.05))
-                    .clipShape(Capsule())
+                // Analyzer toggle
+                Button {
+                    isAnalyzerActive.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(isAnalyzerActive ? Color.green : Color.secondary)
+                            .frame(width: 6, height: 6)
+                        Text("Analyzer")
+                    }
+                }
+                .buttonStyle(GlassPillStyle(isSelected: isAnalyzerActive, tint: .green))
+
+                // Reset button
+                Button("Reset", action: onReset)
+                    .buttonStyle(GlassButtonStyle(tint: .secondary, isSmall: true))
             }
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Glass EQ Preset Picker
+
+struct GlassEQPresetPicker: View {
+    @Binding var bands: [EQBand]
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("EQ Presets")
+                    .font(.headline)
+                Spacer()
+            }
+            .padding()
+
+            // Preset list
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(EQPreset.presets) { preset in
+                        Button {
+                            withAnimation(.spring(duration: 0.3)) {
+                                var newBands = bands
+                                preset.applyTo(&newBands)
+                                bands = newBands
+                            }
+                            isPresented = false
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: preset.icon)
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(.green)
+                                    .frame(width: 24)
+
+                                Text(preset.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(.primary)
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.ultraThinMaterial)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding()
+            }
+        }
+        .frame(width: 280, height: 400)
+        .background {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.ultraThinMaterial)
+        }
     }
 }
 
@@ -157,7 +203,7 @@ struct SpectrumAnalyzerView: View {
                         RoundedRectangle(cornerRadius: 1)
                             .fill(
                                 LinearGradient(
-                                    colors: [.green.opacity(0.8), .green.opacity(0.3)],
+                                    colors: [.green.opacity(0.7), .green.opacity(0.2)],
                                     startPoint: .bottom,
                                     endPoint: .top
                                 )
@@ -173,23 +219,22 @@ struct SpectrumAnalyzerView: View {
     }
 
     private func generateBarHeight(index: Int) -> CGFloat {
-        // Simulate frequency-weighted levels
         let baseLevel = CGFloat.random(in: 0.1...0.6)
         let frequencyWeight: CGFloat
         if index < 8 {
-            frequencyWeight = 0.8 // Bass frequencies
+            frequencyWeight = 0.8
         } else if index < 20 {
-            frequencyWeight = 1.0 // Mid frequencies
+            frequencyWeight = 1.0
         } else {
-            frequencyWeight = 0.5 // High frequencies
+            frequencyWeight = 0.5
         }
         return baseLevel * frequencyWeight
     }
 }
 
-// MARK: - GarageBand Grid View
+// MARK: - Glass EQ Grid View
 
-struct GarageBandGridView: View {
+struct GlassEQGridView: View {
     let frequencies: [Float] = [30, 60, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     let gains: [Float] = [-24, -18, -12, -6, 0, 6, 12, 18, 24]
 
@@ -207,12 +252,12 @@ struct GarageBandGridView: View {
                         path.move(to: CGPoint(x: x, y: 0))
                         path.addLine(to: CGPoint(x: x, y: height))
                     }
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
 
                     // Frequency label at bottom
                     Text(formatFrequency(freq))
-                        .font(.system(size: 8, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.35))
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.3))
                         .position(x: x, y: height - 8)
                 }
 
@@ -225,15 +270,15 @@ struct GarageBandGridView: View {
                         path.addLine(to: CGPoint(x: width - 5, y: y))
                     }
                     .stroke(
-                        gain == 0 ? Color.white.opacity(0.25) : Color.white.opacity(0.06),
+                        gain == 0 ? Color.white.opacity(0.2) : Color.white.opacity(0.04),
                         lineWidth: gain == 0 ? 1 : 0.5
                     )
 
                     // Gain label on left
                     if gain == 0 || abs(gain) == 12 || abs(gain) == 24 {
                         Text("\(gain > 0 ? "+" : "")\(Int(gain))")
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.35))
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.3))
                             .position(x: 12, y: y)
                     }
                 }
@@ -264,9 +309,9 @@ struct GarageBandGridView: View {
     }
 }
 
-// MARK: - GarageBand Curve View
+// MARK: - Glass EQ Curve View
 
-struct GarageBandCurveView: View {
+struct GlassEQCurveView: View {
     let bands: [EQBand]
     let selectedBand: Int?
 
@@ -293,7 +338,7 @@ struct GarageBandCurveView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.green.opacity(0.35),
+                        Color.green.opacity(0.3),
                         Color.green.opacity(0.05)
                     ],
                     startPoint: .top,
@@ -319,13 +364,12 @@ struct GarageBandCurveView: View {
             }
             .stroke(
                 LinearGradient(
-                    colors: [.green.opacity(0.9), .green],
+                    colors: [.green.opacity(0.8), .green],
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
                 style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
             )
-            .shadow(color: .green.opacity(0.5), radius: 4)
 
             // Selected band individual curve highlight
             if let selected = selectedBand {
@@ -400,15 +444,6 @@ struct GarageBandCurveView: View {
         }
     }
 
-    private func frequencyToX(_ freq: Float, width: CGFloat) -> CGFloat {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let logFreq = log10(max(freq, minFreq))
-        return 30 + CGFloat((logFreq - logMin) / (logMax - logMin)) * (width - 40)
-    }
-
     private func xToFrequency(_ x: CGFloat, width: CGFloat) -> Float {
         let minFreq: Float = 20
         let maxFreq: Float = 20000
@@ -426,9 +461,9 @@ struct GarageBandCurveView: View {
     }
 }
 
-// MARK: - GarageBand Band Nodes
+// MARK: - Glass EQ Band Nodes
 
-struct GarageBandBandNodes: View {
+struct GlassEQBandNodes: View {
     @Binding var bands: [EQBand]
     @Binding var selectedBand: Int?
 
@@ -452,7 +487,7 @@ struct GarageBandBandNodes: View {
                             .blur(radius: 6)
                     }
 
-                    // Main node
+                    // Main node with glass effect
                     Circle()
                         .fill(
                             RadialGradient(
@@ -467,7 +502,6 @@ struct GarageBandBandNodes: View {
                             Circle()
                                 .strokeBorder(Color.white, lineWidth: isSelected ? 2 : 1)
                         )
-                        .shadow(color: band.type.color.opacity(0.6), radius: isSelected ? 8 : 4)
 
                     // Band number
                     Text("\(index + 1)")
@@ -527,14 +561,14 @@ struct GarageBandBandNodes: View {
     }
 }
 
-// MARK: - GarageBand Band Strip
+// MARK: - Glass EQ Band Strip
 
-struct GarageBandBandStrip: View {
+struct GlassEQBandStrip: View {
     @Binding var bands: [EQBand]
     @Binding var selectedBand: Int?
 
     var body: some View {
-        HStack(spacing: 4) {
+        GlassEffectContainer(spacing: 4) {
             ForEach(bands.indices, id: \.self) { index in
                 let band = bands[index]
                 let isSelected = selectedBand == index
@@ -558,22 +592,19 @@ struct GarageBandBandStrip: View {
 
                         // Frequency
                         Text(formatFrequency(band.frequency))
-                            .font(.system(size: 8, design: .monospaced))
+                            .font(.system(size: 8))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(isSelected ? Color.white.opacity(0.1) : Color.clear)
-                    )
                 }
+                .glassEffect(
+                    isSelected ? .regular.tint(band.type.color) : .clear,
+                    in: RoundedRectangle(cornerRadius: 8)
+                )
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(Color.black.opacity(0.3))
     }
 
     private func formatFrequency(_ freq: Float) -> String {
@@ -584,123 +615,117 @@ struct GarageBandBandStrip: View {
     }
 }
 
-// MARK: - GarageBand Band Controls
+// MARK: - Glass EQ Band Controls
 
-struct GarageBandBandControls: View {
+struct GlassEQBandControls: View {
     @Binding var band: EQBand
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Type selector
-            HStack(spacing: 8) {
-                ForEach(EQBand.BandType.allCases, id: \.self) { type in
-                    Button {
-                        band.type = type
-                    } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: type.icon)
-                                .font(.system(size: 14))
-                            Text(type.shortName)
-                                .font(.system(size: 8, weight: .medium))
+        GlassCard(tint: band.type.color, cornerRadius: 12) {
+            VStack(spacing: 12) {
+                // Type selector
+                HStack(spacing: 6) {
+                    ForEach(EQBand.BandType.allCases, id: \.self) { type in
+                        Button {
+                            band.type = type
+                        } label: {
+                            VStack(spacing: 2) {
+                                Image(systemName: type.icon)
+                                    .font(.system(size: 12))
+                                Text(type.shortName)
+                                    .font(.system(size: 8, weight: .medium))
+                            }
+                            .frame(width: 46, height: 32)
+                            .foregroundStyle(band.type == type ? .black : .secondary)
                         }
-                        .frame(width: 50, height: 36)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(band.type == type ? type.color : Color.white.opacity(0.05))
+                        .glassEffect(
+                            band.type == type ? .regular.tint(type.color) : .regular,
+                            in: RoundedRectangle(cornerRadius: 6)
                         )
-                        .foregroundStyle(band.type == type ? .black : .secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // Value controls
-            HStack(spacing: 24) {
-                // Frequency
-                VStack(spacing: 4) {
-                    Text("FREQ")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.secondary)
-
-                    Text(formatFrequency(band.frequency))
-                        .font(.system(size: 18, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.green)
-                }
-                .frame(width: 80)
-
-                // Gain
-                VStack(spacing: 4) {
-                    Text("GAIN")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.secondary)
-
-                    HStack(spacing: 12) {
-                        Button {
-                            band.gain = max(-24, band.gain - 1)
-                        } label: {
-                            Image(systemName: "minus")
-                                .font(.system(size: 14, weight: .bold))
-                        }
                         .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
-
-                        Text(String(format: "%+.1f", band.gain))
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                            .foregroundStyle(band.gain >= 0 ? .green : .orange)
-                            .frame(width: 60)
-
-                        Button {
-                            band.gain = min(24, band.gain + 1)
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
                     }
                 }
 
-                // Q
-                VStack(spacing: 4) {
-                    Text("Q")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.secondary)
+                // Value controls
+                HStack(spacing: 20) {
+                    // Frequency
+                    VStack(spacing: 4) {
+                        Text("FREQ")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
 
-                    HStack(spacing: 12) {
-                        Button {
-                            band.q = max(0.1, band.q - 0.1)
-                        } label: {
-                            Image(systemName: "minus")
-                                .font(.system(size: 14, weight: .bold))
+                        Text(formatFrequency(band.frequency))
+                            .font(.system(size: 16, weight: .bold).monospacedDigit())
+                            .foregroundStyle(.green)
+                    }
+                    .frame(width: 70)
+
+                    // Gain with +/- buttons
+                    VStack(spacing: 4) {
+                        Text("GAIN")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+
+                        HStack(spacing: 10) {
+                            Button {
+                                band.gain = max(-24, band.gain - 1)
+                            } label: {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+
+                            Text(String(format: "%+.1f", band.gain))
+                                .font(.system(size: 16, weight: .bold).monospacedDigit())
+                                .foregroundStyle(band.gain >= 0 ? .green : .orange)
+                                .frame(width: 50)
+
+                            Button {
+                                band.gain = min(24, band.gain + 1)
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
+                    }
 
-                        Text(String(format: "%.1f", band.q))
-                            .font(.system(size: 18, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.yellow)
-                            .frame(width: 40)
+                    // Q with +/- buttons
+                    VStack(spacing: 4) {
+                        Text("Q")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
 
-                        Button {
-                            band.q = min(10, band.q + 0.1)
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14, weight: .bold))
+                        HStack(spacing: 10) {
+                            Button {
+                                band.q = max(0.1, band.q - 0.1)
+                            } label: {
+                                Image(systemName: "minus")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+
+                            Text(String(format: "%.1f", band.q))
+                                .font(.system(size: 16, weight: .bold).monospacedDigit())
+                                .foregroundStyle(.yellow)
+                                .frame(width: 36)
+
+                            Button {
+                                band.q = min(10, band.q + 0.1)
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .bold))
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 100)
             }
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.black.opacity(0.4))
-        )
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
     }
 
     private func formatFrequency(_ freq: Float) -> String {
@@ -716,11 +741,11 @@ struct GarageBandBandControls: View {
 struct EQBand: Identifiable {
     let id: Int
     var frequency: Float      // 20 - 20000 Hz
-    var gain: Float           // -30 to +30 dB
+    var gain: Float           // -24 to +24 dB
     var q: Float              // 0.1 to 10
     var type: BandType
     var isEnabled: Bool
-    
+
     enum BandType: String, CaseIterable {
         case highPass = "High Pass"
         case lowShelf = "Low Shelf"
@@ -758,473 +783,62 @@ struct EQBand: Identifiable {
             }
         }
     }
-    
+
+    // 10-band frequencies: 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, 16k
     static let defaultBands: [EQBand] = [
-        EQBand(id: 0, frequency: 30, gain: 0, q: 0.7, type: .highPass, isEnabled: true),
-        EQBand(id: 1, frequency: 80, gain: 0, q: 1.0, type: .lowShelf, isEnabled: true),
-        EQBand(id: 2, frequency: 200, gain: 0, q: 1.0, type: .peak, isEnabled: true),
-        EQBand(id: 3, frequency: 500, gain: 0, q: 1.0, type: .peak, isEnabled: true),
-        EQBand(id: 4, frequency: 1000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
-        EQBand(id: 5, frequency: 3000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
-        EQBand(id: 6, frequency: 8000, gain: 0, q: 1.0, type: .highShelf, isEnabled: true),
-        EQBand(id: 7, frequency: 16000, gain: 0, q: 0.7, type: .lowPass, isEnabled: true)
+        EQBand(id: 0, frequency: 32, gain: 0, q: 1.0, type: .lowShelf, isEnabled: true),
+        EQBand(id: 1, frequency: 64, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 2, frequency: 125, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 3, frequency: 250, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 4, frequency: 500, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 5, frequency: 1000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 6, frequency: 2000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 7, frequency: 4000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 8, frequency: 8000, gain: 0, q: 1.0, type: .peak, isEnabled: true),
+        EQBand(id: 9, frequency: 16000, gain: 0, q: 1.0, type: .highShelf, isEnabled: true)
     ]
 }
 
-// MARK: - EQ Header View
+// MARK: - EQ Presets
 
-struct EQHeaderView: View {
-    var body: some View {
-        HStack {
-            HStack(spacing: 8) {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(.green)
-                Text("PARAMETRIC EQ")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-            }
-            
-            Spacer()
-            
-            Button {
-                // Reset EQ
-            } label: {
-                Text("Reset")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
+struct EQPreset: Identifiable {
+    let id = UUID()
+    let name: String
+    let icon: String
+    let gains: [Float] // 10 values for 10 bands
+
+    static let presets: [EQPreset] = [
+        EQPreset(name: "Flat", icon: "equal", gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
+        EQPreset(name: "Rock", icon: "guitars", gains: [5, 4, 3, 1, -1, 1, 3, 4, 5, 4]),
+        EQPreset(name: "Pop", icon: "music.note", gains: [-2, -1, 0, 2, 4, 4, 2, 0, -1, -2]),
+        EQPreset(name: "Jazz", icon: "music.quarternote.3", gains: [4, 3, 1, 2, -2, -2, 0, 1, 3, 4]),
+        EQPreset(name: "Classical", icon: "waveform", gains: [5, 4, 3, 2, -1, -1, 0, 2, 3, 4]),
+        EQPreset(name: "Hip-Hop", icon: "headphones", gains: [5, 5, 3, 1, -1, 0, 1, 0, 2, 3]),
+        EQPreset(name: "Electronic", icon: "bolt.fill", gains: [4, 5, 3, 0, -2, 1, 3, 4, 4, 3]),
+        EQPreset(name: "R&B", icon: "heart.fill", gains: [3, 6, 4, 1, -2, 0, 2, 3, 3, 2]),
+        EQPreset(name: "Acoustic", icon: "guitars.fill", gains: [4, 3, 2, 1, 1, 1, 2, 3, 3, 2]),
+        EQPreset(name: "Bass Boost", icon: "speaker.wave.3.fill", gains: [6, 5, 4, 2, 0, 0, 0, 0, 0, 0]),
+        EQPreset(name: "Treble Boost", icon: "sparkles", gains: [0, 0, 0, 0, 0, 0, 2, 4, 5, 6]),
+        EQPreset(name: "Vocal", icon: "mic.fill", gains: [-2, -1, 0, 2, 4, 4, 3, 1, 0, -1]),
+        EQPreset(name: "Loudness", icon: "speaker.wave.2.fill", gains: [4, 3, 0, 0, -1, 0, -1, 0, 3, 4]),
+        EQPreset(name: "Metal", icon: "flame.fill", gains: [4, 3, 0, 0, -3, 0, 0, 3, 4, 3])
+    ]
+
+    func applyTo(_ bands: inout [EQBand]) {
+        for i in 0..<min(bands.count, gains.count) {
+            bands[i].gain = gains[i]
         }
-        .padding()
-    }
-}
-
-// MARK: - EQ Grid View
-
-struct EQGridView: View {
-    let frequencies: [Float] = [20, 30, 40, 50, 60, 80, 100, 200, 300, 400, 500, 600, 800, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 20000]
-    let gains: [Float] = [-30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30]
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            
-            ZStack {
-                // Vertical frequency lines
-                ForEach([20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000], id: \.self) { freq in
-                    let x = frequencyToX(Float(freq), width: width)
-                    
-                    Path { path in
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: height))
-                    }
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    
-                    // Frequency label
-                    Text(formatFrequency(Float(freq)))
-                        .font(.system(size: 8, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .position(x: x, y: height - 10)
-                }
-                
-                // Horizontal gain lines
-                ForEach([-20, -10, 0, 10, 20], id: \.self) { gain in
-                    let y = gainToY(Float(gain), height: height)
-                    
-                    Path { path in
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: width, y: y))
-                    }
-                    .stroke(
-                        gain == 0 ? Color.white.opacity(0.3) : Color.white.opacity(0.1),
-                        lineWidth: gain == 0 ? 2 : 1
-                    )
-                    
-                    // Gain label
-                    Text("\(gain)")
-                        .font(.system(size: 8, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .position(x: 15, y: y)
-                }
-            }
-        }
-    }
-    
-    private func formatFrequency(_ freq: Float) -> String {
-        if freq >= 1000 {
-            return "\(Int(freq / 1000))k"
-        }
-        return "\(Int(freq))"
-    }
-    
-    private func frequencyToX(_ freq: Float, width: CGFloat) -> CGFloat {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let logFreq = log10(max(freq, minFreq))
-        return CGFloat((logFreq - logMin) / (logMax - logMin)) * width
-    }
-    
-    private func gainToY(_ gain: Float, height: CGFloat) -> CGFloat {
-        let minGain: Float = -30
-        let maxGain: Float = 30
-        return CGFloat(1 - (gain - minGain) / (maxGain - minGain)) * height
-    }
-}
-
-// MARK: - EQ Curve View
-
-struct EQCurveView: View {
-    let bands: [EQBand]
-    let selectedBand: Int?
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            
-            // Combined frequency response curve
-            Path { path in
-                var started = false
-                for x in stride(from: 0, to: width, by: 2) {
-                    let freq = xToFrequency(x, width: width)
-                    let totalGain = calculateTotalGain(at: freq)
-                    let y = gainToY(totalGain, height: height)
-                    
-                    if !started {
-                        path.move(to: CGPoint(x: x, y: y))
-                        started = true
-                    } else {
-                        path.addLine(to: CGPoint(x: x, y: y))
-                    }
-                }
-            }
-            .stroke(
-                LinearGradient(
-                    colors: [.cyan, .green, .yellow],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ),
-                lineWidth: 2
-            )
-            
-            // Fill under curve
-            Path { path in
-                let zeroY = gainToY(0, height: height)
-                path.move(to: CGPoint(x: 0, y: zeroY))
-                
-                for x in stride(from: 0, to: width, by: 2) {
-                    let freq = xToFrequency(x, width: width)
-                    let totalGain = calculateTotalGain(at: freq)
-                    let y = gainToY(totalGain, height: height)
-                    path.addLine(to: CGPoint(x: x, y: y))
-                }
-                
-                path.addLine(to: CGPoint(x: width, y: zeroY))
-                path.closeSubpath()
-            }
-            .fill(
-                LinearGradient(
-                    colors: [.green.opacity(0.3), .green.opacity(0.05)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            
-            // Selected band highlight
-            if let selected = selectedBand {
-                let band = bands[selected]
-                let centerX = frequencyToX(band.frequency, width: width)
-                let bandWidth = width * 0.15
-                
-                Rectangle()
-                    .fill(band.type.color.opacity(0.2))
-                    .frame(width: bandWidth)
-                    .position(x: centerX, y: height / 2)
-            }
-        }
-    }
-    
-    private func calculateTotalGain(at frequency: Float) -> Float {
-        var total: Float = 0
-        for band in bands where band.isEnabled {
-            total += calculateBandGain(band, at: frequency)
-        }
-        return max(-30, min(30, total))
-    }
-    
-    private func calculateBandGain(_ band: EQBand, at frequency: Float) -> Float {
-        let ratio = frequency / band.frequency
-        let logRatio = log2(ratio)
-        
-        switch band.type {
-        case .peak:
-            let bandwidth = 1.0 / band.q
-            let x = logRatio / bandwidth
-            return band.gain * exp(-x * x * 2)
-            
-        case .lowShelf:
-            if frequency < band.frequency {
-                return band.gain
-            } else {
-                let x = logRatio * band.q
-                return band.gain * exp(-x * x)
-            }
-            
-        case .highShelf:
-            if frequency > band.frequency {
-                return band.gain
-            } else {
-                let x = -logRatio * band.q
-                return band.gain * exp(-x * x)
-            }
-            
-        case .highPass:
-            if frequency < band.frequency {
-                let octaves = log2(band.frequency / frequency)
-                return -octaves * 12 // 12dB/octave
-            }
-            return 0
-            
-        case .lowPass:
-            if frequency > band.frequency {
-                let octaves = log2(frequency / band.frequency)
-                return -octaves * 12
-            }
-            return 0
-        }
-    }
-    
-    private func frequencyToX(_ freq: Float, width: CGFloat) -> CGFloat {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let logFreq = log10(max(freq, minFreq))
-        return CGFloat((logFreq - logMin) / (logMax - logMin)) * width
-    }
-    
-    private func xToFrequency(_ x: CGFloat, width: CGFloat) -> Float {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let ratio = Float(x / width)
-        let logFreq = logMin + ratio * (logMax - logMin)
-        return pow(10, logFreq)
-    }
-    
-    private func gainToY(_ gain: Float, height: CGFloat) -> CGFloat {
-        let minGain: Float = -30
-        let maxGain: Float = 30
-        return CGFloat(1 - (gain - minGain) / (maxGain - minGain)) * height
-    }
-}
-
-// MARK: - EQ Band Controls View
-
-struct EQBandControlsView: View {
-    @Binding var bands: [EQBand]
-    @Binding var selectedBand: Int?
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let width = geometry.size.width
-            let height = geometry.size.height
-            
-            ForEach(bands.indices, id: \.self) { index in
-                let band = bands[index]
-                let x = frequencyToX(band.frequency, width: width)
-                let y = gainToY(band.gain, height: height)
-                
-                Circle()
-                    .fill(band.type.color)
-                    .frame(width: selectedBand == index ? 20 : 14,
-                           height: selectedBand == index ? 20 : 14)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(Color.white, lineWidth: selectedBand == index ? 2 : 1)
-                    )
-                    .shadow(color: band.type.color.opacity(0.5), radius: selectedBand == index ? 8 : 4)
-                    .position(x: x, y: y)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                selectedBand = index
-                                let newFreq = xToFrequency(value.location.x, width: width)
-                                let newGain = yToGain(value.location.y, height: height)
-                                bands[index].frequency = max(20, min(20000, newFreq))
-                                bands[index].gain = max(-30, min(30, newGain))
-                            }
-                    )
-                    .onTapGesture {
-                        selectedBand = selectedBand == index ? nil : index
-                    }
-            }
-        }
-    }
-    
-    private func frequencyToX(_ freq: Float, width: CGFloat) -> CGFloat {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let logFreq = log10(max(freq, minFreq))
-        return CGFloat((logFreq - logMin) / (logMax - logMin)) * width
-    }
-    
-    private func xToFrequency(_ x: CGFloat, width: CGFloat) -> Float {
-        let minFreq: Float = 20
-        let maxFreq: Float = 20000
-        let logMin = log10(minFreq)
-        let logMax = log10(maxFreq)
-        let ratio = Float(max(0, min(x, width)) / width)
-        let logFreq = logMin + ratio * (logMax - logMin)
-        return pow(10, logFreq)
-    }
-    
-    private func gainToY(_ gain: Float, height: CGFloat) -> CGFloat {
-        let minGain: Float = -30
-        let maxGain: Float = 30
-        return CGFloat(1 - (gain - minGain) / (maxGain - minGain)) * height
-    }
-    
-    private func yToGain(_ y: CGFloat, height: CGFloat) -> Float {
-        let minGain: Float = -30
-        let maxGain: Float = 30
-        let ratio = Float(max(0, min(y, height)) / height)
-        return maxGain - ratio * (maxGain - minGain)
-    }
-}
-
-// MARK: - EQ Band Types View
-
-struct EQBandTypesView: View {
-    @Binding var bands: [EQBand]
-    let selectedBand: Int?
-    
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(bands.indices, id: \.self) { index in
-                    let band = bands[index]
-                    
-                    Button {
-                        // Cycle through band types
-                        let types = EQBand.BandType.allCases
-                        if let currentIndex = types.firstIndex(of: band.type) {
-                            let nextIndex = (currentIndex + 1) % types.count
-                            bands[index].type = types[nextIndex]
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: band.type.icon)
-                                .font(.system(size: 14))
-                            Text("\(index + 1)")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        }
-                        .frame(width: 40, height: 40)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedBand == index ? band.type.color : band.type.color.opacity(0.3))
-                        )
-                        .foregroundStyle(selectedBand == index ? .black : .white)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding()
-        }
-    }
-}
-
-// MARK: - EQ Band Info View
-
-struct EQBandInfoView: View {
-    @Binding var band: EQBand
-    
-    var body: some View {
-        HStack(spacing: 24) {
-            // Frequency
-            VStack(spacing: 4) {
-                Text("Frequency")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(formatFrequency(band.frequency))
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.cyan)
-            }
-            
-            // Gain
-            VStack(spacing: 4) {
-                Text("Gain")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(String(format: "%+.1f dB", band.gain))
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(band.gain >= 0 ? .green : .red)
-            }
-            
-            // Q
-            VStack(spacing: 4) {
-                Text("Q")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                HStack(spacing: 8) {
-                    Button {
-                        band.q = max(0.1, band.q - 0.1)
-                    } label: {
-                        Image(systemName: "minus.circle")
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Text(String(format: "%.2f", band.q))
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.yellow)
-                    
-                    Button {
-                        band.q = min(10, band.q + 0.1)
-                    } label: {
-                        Image(systemName: "plus.circle")
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            
-            Spacer()
-            
-            // Type
-            VStack(spacing: 4) {
-                Text("Type")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(band.type.rawValue)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(band.type.color)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.3))
-        )
-    }
-    
-    private func formatFrequency(_ freq: Float) -> String {
-        if freq >= 1000 {
-            return String(format: "%.1f kHz", freq / 1000)
-        }
-        return String(format: "%.0f Hz", freq)
     }
 }
 
 // MARK: - Preview
 
 #Preview {
-    ParametricEQView(engine: AudioEngineManager())
-        .frame(height: 500)
-        .padding()
-        .background(Color.black)
+    ZStack {
+        AdaptiveBackground()
+
+        ParametricEQView(engine: AudioEngineManager())
+            .frame(height: 500)
+            .padding()
+    }
 }

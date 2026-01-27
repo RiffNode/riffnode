@@ -29,6 +29,16 @@ final class AudioEngineManager: AudioManaging {
     private(set) var inputLevel: Float = 0
     private(set) var outputLevel: Float = 0
 
+    // MARK: - Audio Analysis Callbacks (for AI features)
+
+    /// Callback for raw audio samples (used by FFT analyzer, chord detector)
+    /// This callback runs on MainActor for thread safety with @Observable analyzers
+    var onAudioSamplesAvailable: (@MainActor ([Float]) -> Void)?
+
+    /// Latest audio samples buffer for analysis
+    private(set) var latestAudioSamples: [Float] = []
+    private let analysisBufferSize = 4096
+
     // MARK: - Effects Chain (EffectsChainManaging)
 
     var effectsChain: [EffectNode] = []
@@ -56,7 +66,6 @@ final class AudioEngineManager: AudioManaging {
 
     // Visualization
     private var tapInstalled = false
-    private var visualizationTimer: Timer?
     
     // Store processing format for rebuilding audio chain
     private var processingFormat: AVAudioFormat?
@@ -216,8 +225,8 @@ final class AudioEngineManager: AudioManaging {
             print("Audio engine started successfully")
         print("Audio engine running! Play your guitar!")
             
-            // Start simulated visualization (stable version)
-            startSimulatedVisualization()
+            // Start real audio visualization with tap
+            startRealAudioVisualization()
         } catch {
             print("Failed to start audio engine: \(error)")
             throw error
@@ -575,70 +584,112 @@ final class AudioEngineManager: AudioManaging {
         print("syncBypassStates: Bypass states synchronized")
     }
 
-    // MARK: - Simulated Visualization
-    
+    // MARK: - Audio Visualization
+
     private var visualizationPhase: Float = 0
-    
-    private func startSimulatedVisualization() {
+    private var audioSampleBuffer: [Float] = []
+    private var analysisFrameCounter = 0
+    private let analysisFrameSkip = 3 // Only analyze every Nth frame for performance
+
+    private func startRealAudioVisualization() {
         stopVisualization()
-        visualizationPhase = 0
-        
-        visualizationTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateVisualization()
-            }
+
+        // Refresh device detection
+        detectAudioInputDevices()
+
+        guard let input = inputNode else {
+            print("⚠️ No input node available - visualization disabled")
+            return
         }
-        
-        print("Simulated visualization started")
+
+        // Get and validate input format
+        let inputFormat = input.outputFormat(forBus: 0)
+
+        // Validate format to prevent crashes
+        guard inputFormat.sampleRate > 0,
+              inputFormat.sampleRate.isFinite,
+              inputFormat.sampleRate <= 192000,
+              inputFormat.channelCount > 0,
+              inputFormat.channelCount <= 8 else {
+            print("⚠️ Invalid input format: \(inputFormat.sampleRate)Hz, \(inputFormat.channelCount)ch")
+            return
+        }
+
+        print("📊 Installing audio tap: \(inputFormat.sampleRate)Hz, \(inputFormat.channelCount)ch")
+
+        input.removeTap(onBus: 0)
+
+        // Pre-access the shared buffer on main thread to ensure initialization
+        let sharedBuffer = AudioSampleBuffer.shared
+        _ = sharedBuffer.read() // Force initialization
+
+        input.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
+            // ⚠️ BACKGROUND AUDIO THREAD - NO SELF CAPTURE ALLOWED
+
+            guard let channelData = buffer.floatChannelData else { return }
+            let frameLength = Int(buffer.frameLength)
+            guard frameLength > 0 else { return }
+
+            let channelPtr = channelData[0]
+            let strideStep = 4
+            let outputSize = frameLength / strideStep
+            guard outputSize > 0 else { return }
+
+            var samples = [Float](repeating: 0, count: outputSize)
+            for i in 0..<outputSize {
+                samples[i] = channelPtr[i * strideStep]
+            }
+
+            // Use free functions to avoid any MainActor association
+            let rms = audioCalculateRMS(samples)
+            let waveform = audioDownsampleForDisplay(samples, targetCount: 128)
+
+            // Write to thread-safe buffer (no MainActor dependency)
+            AudioSampleBuffer.shared.write(samples: samples, waveform: waveform, rms: rms)
+        }
+
+        tapInstalled = true
+
+        // Start polling using MainActor-safe async loop
+        startVisualizationPolling()
+
+        print("✅ Audio visualization started successfully")
     }
-    
+
+    private func startVisualizationPolling() {
+        // Use a simple async loop that's fully MainActor-isolated
+        visualizationTask = Task {
+            await runVisualizationLoop()
+        }
+    }
+
+    private func runVisualizationLoop() async {
+        while !Task.isCancelled && isRunning {
+            let data = AudioSampleBuffer.shared.read()
+
+            inputLevel = min(1.0, data.rms * 5)
+            outputLevel = inputLevel * 0.9
+            waveformSamples = data.waveform
+
+            if !data.samples.isEmpty {
+                latestAudioSamples = data.samples
+            }
+
+            try? await Task.sleep(for: .milliseconds(33))
+        }
+    }
+
+    private var visualizationTask: Task<Void, Never>?
+
+
     private func stopVisualization() {
-        visualizationTimer?.invalidate()
-        visualizationTimer = nil
-        if tapInstalled, let mixer = mainMixer {
-            mixer.removeTap(onBus: 0)
+        visualizationTask?.cancel()
+        visualizationTask = nil
+        if tapInstalled {
+            inputNode?.removeTap(onBus: 0)
             tapInstalled = false
         }
-    }
-    
-    private func updateVisualization() {
-        guard isRunning else { return }
-        
-        let samples = generateWaveform()
-        let level = generateLevel()
-        
-        Task { @MainActor in
-            self.waveformSamples = samples
-            self.outputLevel = level
-            self.inputLevel = level * 0.8
-        }
-        
-        visualizationPhase += 0.15
-        if visualizationPhase > 1000 { visualizationPhase = 0 }
-    }
-    
-    private func generateWaveform() -> [Float] {
-        var samples = [Float](repeating: 0, count: 128)
-        let p = visualizationPhase
-        
-        for i in 0..<128 {
-            let x = Float(i) / 128.0
-            let a1 = (x * 4.0 + p) * Float.pi * 2
-            let a2 = (x * 8.0 + p * 1.5) * Float.pi * 2
-            let a3 = (x * 16.0 + p * 2.0) * Float.pi * 2
-            
-            let w1 = sin(a1) * 0.4
-            let w2 = sin(a2) * 0.2
-            let w3 = sin(a3) * 0.1
-            let n = Float.random(in: -0.05...0.05)
-            
-            samples[i] = abs(w1 + w2 + w3 + n)
-        }
-        return samples
-    }
-    
-    private func generateLevel() -> Float {
-        return 0.3 + Float.random(in: 0.0...0.2)
+        audioSampleBuffer.removeAll()
     }
 }
 
@@ -806,17 +857,34 @@ private final class EffectUnitsContainer {
 extension AudioEngineManager {
 
     /// Detect and update available audio input devices
+    /// This method is safe to call from MainActor - updates properties directly
     func detectAudioInputDevices() {
         #if os(macOS)
-        detectMacOSInputDevices()
+        let result = AudioEngineManager.collectMacOSInputDevices()
         #else
-        detectIOSInputDevices()
+        let result = AudioEngineManager.collectIOSInputDevices()
         #endif
+
+        // Update properties directly (we're on MainActor)
+        self.availableInputDevices = result.devices
+        self.currentInputDeviceName = result.currentName
+        self.currentInputDeviceType = result.currentType
+
+        print("detectAudioInputDevices: Found \(result.devices.count) devices, current: \(result.currentName)")
+    }
+
+    // MARK: - Static Device Collection (Thread-Safe, No Self Capture)
+
+    /// Result type for device detection - avoids any self capture
+    private struct DeviceDetectionResult {
+        let devices: [AudioInputDevice]
+        let currentName: String
+        let currentType: AudioInputDeviceType
     }
 
     #if os(macOS)
-    private func detectMacOSInputDevices() {
-        // On macOS, use AVCaptureDevice for audio input detection
+    /// Static function to collect macOS input devices - no MainActor dependency
+    private static func collectMacOSInputDevices() -> DeviceDetectionResult {
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInMicrophone, .externalUnknown],
             mediaType: .audio,
@@ -826,7 +894,7 @@ extension AudioEngineManager {
         var devices: [AudioInputDevice] = []
 
         for device in discoverySession.devices {
-            let deviceType = classifyInputDevice(name: device.localizedName)
+            let deviceType = classifyInputDeviceStatic(name: device.localizedName)
             devices.append(AudioInputDevice(
                 id: device.uniqueID,
                 name: device.localizedName,
@@ -834,31 +902,33 @@ extension AudioEngineManager {
             ))
         }
 
-        availableInputDevices = devices
+        let currentName: String
+        let currentType: AudioInputDeviceType
 
-        // Set current device (default or first available)
         if let defaultDevice = AVCaptureDevice.default(for: .audio) {
-            currentInputDeviceName = defaultDevice.localizedName
-            currentInputDeviceType = classifyInputDevice(name: defaultDevice.localizedName)
+            currentName = defaultDevice.localizedName
+            currentType = classifyInputDeviceStatic(name: defaultDevice.localizedName)
         } else if let firstDevice = devices.first {
-            currentInputDeviceName = firstDevice.name
-            currentInputDeviceType = firstDevice.type
+            currentName = firstDevice.name
+            currentType = firstDevice.type
+        } else {
+            currentName = "No Input"
+            currentType = .none
         }
 
-        print("detectAudioInputDevices (macOS): Found \(devices.count) devices, current: \(currentInputDeviceName)")
+        return DeviceDetectionResult(devices: devices, currentName: currentName, currentType: currentType)
     }
     #endif
 
     #if os(iOS) || targetEnvironment(macCatalyst)
-    private func detectIOSInputDevices() {
+    /// Static function to collect iOS input devices - no MainActor dependency
+    private static func collectIOSInputDevices() -> DeviceDetectionResult {
         let session = AVAudioSession.sharedInstance()
-
         var devices: [AudioInputDevice] = []
 
-        // Get available inputs
         if let availableInputs = session.availableInputs {
             for input in availableInputs {
-                let deviceType = classifyIOSPort(portType: input.portType)
+                let deviceType = classifyIOSPortStatic(portType: input.portType)
                 devices.append(AudioInputDevice(
                     id: input.uid,
                     name: input.portName,
@@ -867,21 +937,25 @@ extension AudioEngineManager {
             }
         }
 
-        availableInputDevices = devices
+        let currentName: String
+        let currentType: AudioInputDeviceType
 
-        // Get current input
         if let currentInput = session.currentRoute.inputs.first {
-            currentInputDeviceName = currentInput.portName
-            currentInputDeviceType = classifyIOSPort(portType: currentInput.portType)
+            currentName = currentInput.portName
+            currentType = classifyIOSPortStatic(portType: currentInput.portType)
         } else if let firstDevice = devices.first {
-            currentInputDeviceName = firstDevice.name
-            currentInputDeviceType = firstDevice.type
+            currentName = firstDevice.name
+            currentType = firstDevice.type
+        } else {
+            currentName = "No Input"
+            currentType = .none
         }
 
-        print("detectAudioInputDevices (iOS): Found \(devices.count) devices, current: \(currentInputDeviceName)")
+        return DeviceDetectionResult(devices: devices, currentName: currentName, currentType: currentType)
     }
 
-    private func classifyIOSPort(portType: AVAudioSession.Port) -> AudioInputDeviceType {
+    /// Static port classification - no self dependency
+    private static func classifyIOSPortStatic(portType: AVAudioSession.Port) -> AudioInputDeviceType {
         switch portType {
         case .builtInMic:
             return .builtInMicrophone
@@ -897,8 +971,8 @@ extension AudioEngineManager {
     }
     #endif
 
-    /// Classify device based on name patterns
-    private func classifyInputDevice(name: String) -> AudioInputDeviceType {
+    /// Static device classification - no self dependency
+    private static func classifyInputDeviceStatic(name: String) -> AudioInputDeviceType {
         let lowercaseName = name.lowercased()
 
         // USB Audio Interfaces
@@ -982,5 +1056,72 @@ enum AudioInputDeviceType: String {
         case .bluetooth: return .purple
         case .external: return .cyan
         }
+    }
+}
+
+// MARK: - Free Functions for Audio Processing (Thread-Safe)
+// These are NOT associated with any actor - safe to call from any thread
+
+func audioDownsampleForDisplay(_ samples: [Float], targetCount: Int) -> [Float] {
+    guard samples.count > 0 else { return Array(repeating: 0, count: targetCount) }
+
+    var result = [Float](repeating: 0, count: targetCount)
+    let chunkSize = max(1, samples.count / targetCount)
+
+    for i in 0..<targetCount {
+        let start = i * chunkSize
+        let end = min(start + chunkSize, samples.count)
+        var maxVal: Float = 0
+        for j in start..<end {
+            maxVal = max(maxVal, abs(samples[j]))
+        }
+        result[i] = maxVal
+    }
+    return result
+}
+
+func audioCalculateRMS(_ samples: [Float]) -> Float {
+    guard samples.count > 0 else { return 0 }
+    var sum: Float = 0
+    for sample in samples {
+        sum += sample * sample
+    }
+    return sqrt(sum / Float(samples.count))
+}
+
+// MARK: - Thread-Safe Audio Sample Buffer
+// Allows audio thread to write samples without MainActor dependency
+// Main thread polls this buffer to update UI
+
+final class AudioSampleBuffer: @unchecked Sendable {
+    static let shared = AudioSampleBuffer()
+
+    private let lock = NSLock()
+    private var _samples: [Float] = []
+    private var _waveform: [Float] = Array(repeating: 0, count: 128)
+    private var _rms: Float = 0
+
+    struct AudioData {
+        let samples: [Float]
+        let waveform: [Float]
+        let rms: Float
+    }
+
+    private init() {}
+
+    /// Write audio data from audio thread (thread-safe)
+    func write(samples: [Float], waveform: [Float], rms: Float) {
+        lock.lock()
+        defer { lock.unlock() }
+        _samples = samples
+        _waveform = waveform
+        _rms = rms
+    }
+
+    /// Read audio data from main thread (thread-safe)
+    func read() -> AudioData {
+        lock.lock()
+        defer { lock.unlock() }
+        return AudioData(samples: _samples, waveform: _waveform, rms: _rms)
     }
 }

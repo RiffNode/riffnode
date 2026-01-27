@@ -33,11 +33,13 @@ let package = Package(
             ],
             capabilities: [
                 .microphone(purposeString: "RiffNode needs microphone access to process your guitar input through the effects chain."),
+                .camera(purposeString: "RiffNode uses the camera for hands-free gesture control - control effects with head movements while playing."),
                 .fileAccess(.userSelectedFiles, mode: .readOnly),
                 .fileAccess(.downloadsFolder, mode: .readOnly),
                 .fileAccess(.musicFolder, mode: .readOnly),
                 .fileAccess(.pictureFolder, mode: .readOnly),
-                .fileAccess(.moviesFolder, mode: .readOnly)
+                .fileAccess(.moviesFolder, mode: .readOnly),
+                .incomingNetworkConnections()
             ],
             appCategory: .music
         )
