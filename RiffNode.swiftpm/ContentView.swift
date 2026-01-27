@@ -56,6 +56,8 @@ struct ContentView: View {
                 )
             }
         }
+        // iOS 26 Liquid Glass: Force light mode to match Apple's design language
+        .preferredColorScheme(.light)
         #if os(macOS)
         .frame(minWidth: 1000, minHeight: 700)
         #endif
@@ -72,131 +74,134 @@ struct WelcomeView: View {
     @State private var viewModel: SetupViewModel?
     @State private var showContent = false
     @State private var setupComplete = false
+    @Namespace private var welcomeNamespace
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 0) {
             Spacer()
-
-            // App title and story
-            VStack(spacing: 20) {
-                // Logo with glass effect
+            
+            // Hero section with large glass logo
+            VStack(spacing: Spacing.xl) {
+                // Large glass app icon
                 ZStack {
+                    // Outer glow
                     Circle()
-                        .fill(.ultraThinMaterial)
-                        .frame(width: 100, height: 100)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(
-                                    LinearGradient(
-                                        colors: [.white.opacity(0.4), .white.opacity(0.1)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 1
-                                )
-                        }
-                        .shadow(color: .black.opacity(0.1), radius: 20, y: 10)
-
+                        .fill(.white.opacity(0.3))
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 30)
+                    
+                    // Glass circle with icon
+                    Circle()
+                        .glassEffect(.regular.interactive(), in: Circle())
+                        .frame(width: 140, height: 140)
+                    
                     Image(systemName: "guitars.fill")
-                        .font(.system(size: 44))
-                        .foregroundStyle(.linearGradient(
-                            colors: [.cyan, .blue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
+                        .font(.system(size: 60, weight: .medium))
+                        .foregroundStyle(.primary)
                 }
-
-                Text("RiffNode")
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                Text("Your Guitar Effects Playground")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-
-                // Story/narrative
-                VStack(spacing: 12) {
-                    Text("Ever wondered how guitarists create those iconic sounds?")
-                        .font(.body)
+                .scaleEffect(showContent ? 1 : 0.8)
+                .opacity(showContent ? 1 : 0)
+                
+                // App name with subtle gradient
+                VStack(spacing: Spacing.sm) {
+                    Text("RiffNode")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary)
+                    
+                    Text("Guitar Effects Playground")
+                        .font(.title3.weight(.medium))
                         .foregroundStyle(.secondary)
-
-                    Text("From the crunchy distortion of rock legends to the ethereal reverbs of ambient music - it all starts with understanding effects pedals.")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 60)
-                .padding(.top, 8)
+                .opacity(showContent ? 1 : 0)
             }
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 20)
-
+            
             Spacer()
-
-            // Setup steps in glass card
+            
+            // Setup card - centered and prominent
             if let vm = viewModel {
-                GlassCard(cornerRadius: 16, padding: 20) {
-                    VStack(spacing: 12) {
-                        ForEach([SetupViewModel.SetupStep.permission, .engine, .ready], id: \.rawValue) { step in
-                            GlassSetupStepRow(
-                                step: step,
-                                status: vm.stepStatus(for: step)
-                            )
+                VStack(spacing: Spacing.lg) {
+                    ForEach([SetupViewModel.SetupStep.permission, .engine, .ready], id: \.rawValue) { step in
+                        HStack(spacing: Spacing.md) {
+                            ZStack {
+                                Circle()
+                                    .glassEffect(.regular, in: Circle())
+                                    .frame(width: 40, height: 40)
+
+                                Image(systemName: stepIcon(for: step, status: vm.stepStatus(for: step)))
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(stepColor(for: vm.stepStatus(for: step)))
+                            }
+
+                            Text(step.description)
+                                .font(.body)
+                                .foregroundStyle(vm.stepStatus(for: step) == .completed ? .primary : .secondary)
+
+                            Spacer()
                         }
                     }
                 }
-                .padding(.horizontal, 60)
+                .padding(Spacing.lg)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: CornerRadius.xl))
+                .frame(maxWidth: 400)
+                .padding(.horizontal, Spacing.xl)
                 .opacity(showContent ? 1 : 0)
             }
-
+            
             Spacer()
-
-            // Action buttons
-            if setupComplete {
-                VStack(spacing: 16) {
+            
+            // Action buttons - large and prominent
+            VStack(spacing: Spacing.md) {
+                if setupComplete {
                     Button {
                         onStartTour()
                     } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "book.fill")
-                            Text("Take the 3-Minute Tour")
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("Take the Tour")
+                                .font(.headline)
                         }
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, Spacing.md)
                     }
-                    .buttonStyle(GlassButtonStyle(tint: .cyan))
-
+                    .buttonStyle(.glassProminent)
+                    
                     Button {
                         onSkipToMain()
                     } label: {
-                        Text("Skip to App")
-                            .font(.subheadline)
+                        Text("Skip")
+                            .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-            } else {
-                Button {
-                    Task {
-                        await viewModel?.performNextStep()
-                        if viewModel?.currentStep == .ready {
-                            withAnimation(.spring(duration: 0.4)) {
-                                setupComplete = true
+                } else {
+                    Button {
+                        Task {
+                            await viewModel?.performNextStep()
+                            if viewModel?.currentStep == .ready {
+                                withAnimation(.spring(duration: 0.4)) {
+                                    setupComplete = true
+                                }
                             }
                         }
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        if viewModel?.isLoading == true {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(.white)
+                    } label: {
+                        HStack(spacing: Spacing.sm) {
+                            if viewModel?.isLoading == true {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Text(viewModel?.buttonTitle ?? "Continue")
+                                .font(.headline)
                         }
-                        Text(viewModel?.buttonTitle ?? "Continue")
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, Spacing.md)
                     }
+                    .buttonStyle(.glassProminent)
+                    .disabled(viewModel?.isLoading == true)
                 }
-                .buttonStyle(GlassButtonStyle(tint: .cyan))
-                .disabled(viewModel?.isLoading == true)
             }
+            .padding(.bottom, Spacing.xxl)
 
             if let error = viewModel?.errorMessage {
                 Text(error)
@@ -205,8 +210,6 @@ struct WelcomeView: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             }
-
-            Spacer()
         }
         .padding()
         .onAppear {
@@ -214,6 +217,24 @@ struct WelcomeView: View {
             withAnimation(.easeOut(duration: 0.5)) {
                 showContent = true
             }
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func stepIcon(for step: SetupViewModel.SetupStep, status: SetupViewModel.StepStatus) -> String {
+        switch status {
+        case .completed: return "checkmark"
+        case .active: return "circle.dotted"
+        case .pending: return "circle"
+        }
+    }
+    
+    private func stepColor(for status: SetupViewModel.StepStatus) -> Color {
+        switch status {
+        case .completed: return .green
+        case .active: return .primary
+        case .pending: return .secondary
         }
     }
 }
@@ -229,7 +250,10 @@ struct GlassSetupStepRow: View {
             // Status indicator
             ZStack {
                 Circle()
-                    .fill(statusColor.opacity(0.2))
+                    .glassEffect(
+                        status == .completed ? .regular.tint(.green) : .regular,
+                        in: Circle()
+                    )
                     .frame(width: 36, height: 36)
 
                 if status == .completed {
@@ -261,18 +285,10 @@ struct GlassSetupStepRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(status == .active ? Color.accentColor.opacity(0.1) : Color.clear)
-        }
-    }
-
-    private var statusColor: Color {
-        switch status {
-        case .pending: return .gray
-        case .active: return .accentColor
-        case .completed: return .green
-        }
+        .glassEffect(
+            status == .active ? .regular.tint(.accentColor).interactive() : .clear,
+            in: RoundedRectangle(cornerRadius: 10)
+        )
     }
 }
 
@@ -318,12 +334,12 @@ struct MainInterfaceView: View {
                 showingSettings: $showingSettings,
                 showingPresets: $showingPresets
             )
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.sm)
 
             HStack(spacing: 0) {
                 // Left panel
-                VStack(spacing: 16) {
+                VStack(spacing: Spacing.md) {
                     AudioVisualizationPanel(engine: engine)
 
                     // Compact chord display
@@ -335,19 +351,19 @@ struct MainInterfaceView: View {
                 .frame(width: 380)
 
                 GlassDivider(vertical: true)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, Spacing.md)
 
                 // Right panel with tab switching
                 VStack(spacing: 0) {
                     // Glass tab selector
                     HStack {
-                        GlassTabBar(selection: $selectedTab, tint: .accentColor) { tab in
+                        GlassTabBar(selection: $selectedTab, tint: Color.riffPrimary) { tab in
                             tab.icon
                         }
                         Spacer()
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.md)
 
                     // Content based on selected tab
                     Group {
@@ -380,6 +396,9 @@ struct MainInterfaceView: View {
         }
         .sheet(isPresented: $showingPresets) {
             PresetPickerView(engine: engine, presetService: presetService)
+                #if targetEnvironment(macCatalyst)
+                .frame(minWidth: 400, minHeight: 500)
+                #endif
         }
         .onAppear {
             setupGestureActions()
@@ -460,11 +479,11 @@ struct AIToolsView: View {
                 .padding(.horizontal)
 
                 // Spectrum Analyzer (FFT)
-                GlassCard(tint: .cyan, cornerRadius: 16) {
+                GlassCard(tint: Color.riffDynamics, cornerRadius: 16) {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("Real-Time Spectrum Analysis", systemImage: "waveform.path.ecg")
                             .font(.headline)
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(Color.riffDynamics)
 
                         Text("Fast Fourier Transform (FFT) decomposes your audio into frequency components")
                             .font(.caption)
@@ -476,11 +495,11 @@ struct AIToolsView: View {
                 .padding(.horizontal)
 
                 // Chord Detection
-                GlassCard(tint: .yellow, cornerRadius: 16) {
+                GlassCard(tint: Color.riffFilter, cornerRadius: 16) {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("AI Chord Detection", systemImage: "pianokeys")
                             .font(.headline)
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(Color.riffFilter)
 
                         Text("Pitch detection using autocorrelation algorithm identifies notes and chords")
                             .font(.caption)
@@ -492,11 +511,11 @@ struct AIToolsView: View {
                 .padding(.horizontal)
 
                 // Vision Gesture Control
-                GlassCard(tint: .purple, cornerRadius: 16) {
+                GlassCard(tint: Color.riffAmbience, cornerRadius: 16) {
                     VStack(alignment: .leading, spacing: 12) {
                         Label("Hands-Free Gesture Control", systemImage: "hand.raised.fill")
                             .font(.headline)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(Color.riffAmbience)
 
                         Text("Computer Vision detects head movements - control effects while playing!")
                             .font(.caption)
@@ -628,7 +647,7 @@ struct GlassTopBarView: View {
                     Text("Presets")
                 }
             }
-            .buttonStyle(GlassButtonStyle(tint: .accentColor, isSmall: true))
+            .buttonStyle(.glass)
 
             // Engine status
             GlassStatusIndicator(
@@ -656,22 +675,8 @@ struct GlassTopBarView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        .background {
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 0.5
-                        )
-                }
-                .shadow(color: .black.opacity(0.15), radius: 20, y: 8)
-        }
+        // iOS 26 Liquid Glass: Use native glassEffect for toolbar
+        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20))
     }
 }
 

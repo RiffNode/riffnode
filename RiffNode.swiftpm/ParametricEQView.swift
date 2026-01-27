@@ -101,7 +101,7 @@ struct GlassEQHeader: View {
                         Text("Presets")
                     }
                 }
-                .buttonStyle(GlassButtonStyle(tint: .green, isSmall: true))
+                .buttonStyle(.glass)
                 .popover(isPresented: $showPresets) {
                     GlassEQPresetPicker(bands: $bands, isPresented: $showPresets)
                 }
@@ -121,7 +121,7 @@ struct GlassEQHeader: View {
 
                 // Reset button
                 Button("Reset", action: onReset)
-                    .buttonStyle(GlassButtonStyle(tint: .secondary, isSmall: true))
+                    .buttonStyle(.glass)
             }
         }
     }
@@ -169,10 +169,7 @@ struct GlassEQPresetPicker: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.ultraThinMaterial)
-                            }
+                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
                     }
@@ -181,10 +178,7 @@ struct GlassEQPresetPicker: View {
             }
         }
         .frame(width: 280, height: 400)
-        .background {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
     }
 }
 

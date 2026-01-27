@@ -31,11 +31,11 @@ enum EffectCategory: String, CaseIterable, Identifiable, Sendable {
     
     var color: Color {
         switch self {
-        case .dynamics: return .cyan
-        case .filterPitch: return .purple
-        case .gainDirt: return .orange
-        case .modulation: return .green
-        case .timeAmbience: return .blue
+        case .dynamics: return .riffDynamics
+        case .filterPitch: return .riffFilter
+        case .gainDirt: return .riffGain
+        case .modulation: return .riffModulation
+        case .timeAmbience: return .riffAmbience
         }
     }
     
@@ -136,17 +136,17 @@ enum EffectType: String, CaseIterable, Identifiable, Codable, Sendable {
 
     var color: Color {
         switch self {
-        case .compressor: return .cyan
-        case .equalizer: return .green
-        case .overdrive: return .green
-        case .distortion: return .orange
-        case .fuzz: return .purple
-        case .chorus: return .blue
-        case .phaser: return .green
-        case .flanger: return .cyan
-        case .tremolo: return .red
-        case .delay: return .blue
-        case .reverb: return .purple
+        case .compressor: return .riffDynamics
+        case .equalizer: return .riffFilter
+        case .overdrive: return .riffGain
+        case .distortion: return .riffGain
+        case .fuzz: return Color(red: 0.7, green: 0.45, blue: 0.55) // Warm rose
+        case .chorus: return .riffModulation
+        case .phaser: return .riffModulation
+        case .flanger: return .riffModulation
+        case .tremolo: return Color(red: 0.65, green: 0.5, blue: 0.6) // Soft mauve
+        case .delay: return .riffAmbience
+        case .reverb: return .riffAmbience
         }
     }
 
@@ -412,10 +412,10 @@ struct EffectPreset: Identifiable, Hashable {
 
         var color: Color {
             switch self {
-            case .clean: return .cyan
-            case .crunch: return .orange
-            case .heavy: return .red
-            case .ambient: return .purple
+            case .clean: return .riffDynamics
+            case .crunch: return .riffGain
+            case .heavy: return Color(red: 0.7, green: 0.4, blue: 0.4)
+            case .ambient: return .riffAmbience
             }
         }
     }

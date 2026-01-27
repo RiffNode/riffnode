@@ -71,46 +71,52 @@ struct GuidedTourView: View {
             AdaptiveBackground()
 
             VStack(spacing: 0) {
-                // Progress indicator
+                // Progress indicator - cleaner design
                 GlassProgressBar(
                     progress: Double(currentStep) / Double(tourSteps.count - 1),
                     steps: tourSteps.count,
                     currentStep: currentStep
                 )
-                .padding(.horizontal, 40)
-                .padding(.top, 20)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.top, Spacing.lg)
 
                 Spacer()
 
                 // Main content
                 let step = tourSteps[currentStep]
 
-                VStack(spacing: 24) {
+                VStack(spacing: Spacing.xl) {
                     // Effect visualization if applicable
                     if let effectType = step.highlightEffect {
                         GlassEffectDemoView(effectType: effectType, isActive: showingEffect)
-                            .frame(height: 150)
+                            .frame(height: 180)
                             .transition(.scale.combined(with: .opacity))
                     }
 
-                    // Text content in glass card
-                    GlassCard(tint: step.highlightEffect?.color ?? .cyan, cornerRadius: 20) {
-                        VStack(spacing: 12) {
-                            Text(step.title)
-                                .font(.system(size: 28, weight: .bold))
+                    // Text content - clean and minimal without heavy glass border
+                    VStack(spacing: Spacing.md) {
+                        Text(step.title)
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary)
 
-                            Text(step.subtitle)
-                                .font(.title3)
-                                .foregroundStyle(step.highlightEffect?.color ?? .cyan)
+                        Text(step.subtitle)
+                            .font(.title3.weight(.medium))
+                            .foregroundStyle(step.highlightEffect?.color ?? Color.riffPrimary)
 
-                            Text(step.content)
-                                .font(.body)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.top, 4)
-                        }
+                        Text(step.content)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(4)
+                            .padding(.top, Spacing.sm)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(Spacing.xl)
+                    .frame(maxWidth: 500)
+                    .background {
+                        RoundedRectangle(cornerRadius: CornerRadius.xl)
+                            .fill(.ultraThinMaterial)
+                    }
+                    .padding(.horizontal, Spacing.lg)
                 }
                 .id(currentStep)
                 .transition(.asymmetric(
@@ -124,24 +130,19 @@ struct GuidedTourView: View {
                 GlassTourNavigation(
                     currentStep: currentStep,
                     actionLabel: tourSteps[currentStep].actionLabel,
-                    onBack: {
-                        withAnimation(.spring(duration: 0.4)) {
-                            showingEffect = false
-                            currentStep -= 1
-                        }
-                    },
+                    onBack: handleBack,
                     onNext: handleAction,
                     namespace: tourNamespace
                 )
-                .padding(.bottom, 40)
+                .padding(.bottom, Spacing.xl)
 
-                // Skip option
+                // Skip option - subtle
                 Button("Skip Tour") {
                     onComplete()
                 }
-                .font(.subheadline)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
-                .padding(.bottom, 20)
+                .padding(.bottom, Spacing.lg)
             }
         }
         .onAppear {
@@ -155,30 +156,65 @@ struct GuidedTourView: View {
     private func handleAction() {
         let step = tourSteps[currentStep]
 
-        if let effectType = step.highlightEffect {
-            if !showingEffect {
-                withAnimation(.spring(duration: 0.3)) {
-                    showingEffect = true
-                    demoEffect = effectType
-                }
-                enableDemoEffect(effectType)
-                return
-            } else {
-                disableDemoEffect(effectType)
-            }
-        }
-
         if currentStep < tourSteps.count - 1 {
+            // Disable current effect before moving to next step
+            if let currentEffect = step.highlightEffect {
+                disableDemoEffect(currentEffect)
+            }
+
+            // Calculate next step index before updating currentStep
+            let nextStepIndex = currentStep + 1
+            let nextStep = tourSteps[nextStepIndex]
+
             withAnimation(.spring(duration: 0.4)) {
                 showingEffect = false
-                currentStep += 1
+                currentStep = nextStepIndex
             }
-            if let previousEffect = tourSteps[currentStep - 1].highlightEffect {
-                disableDemoEffect(previousEffect)
+
+            // Enable the new step's effect after a short delay for smooth transition
+            if let nextEffect = nextStep.highlightEffect {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(300))
+                    enableDemoEffect(nextEffect)
+                    withAnimation(.spring(duration: 0.3)) {
+                        showingEffect = true
+                        demoEffect = nextEffect
+                    }
+                }
             }
         } else {
             restoreEffectStates()
             onComplete()
+        }
+    }
+
+    private func handleBack() {
+        let step = tourSteps[currentStep]
+
+        // Disable current effect
+        if let currentEffect = step.highlightEffect {
+            disableDemoEffect(currentEffect)
+        }
+
+        // Calculate previous step
+        let prevStepIndex = currentStep - 1
+        let prevStep = tourSteps[prevStepIndex]
+
+        withAnimation(.spring(duration: 0.4)) {
+            showingEffect = false
+            currentStep = prevStepIndex
+        }
+
+        // Enable the previous step's effect
+        if let prevEffect = prevStep.highlightEffect {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(300))
+                enableDemoEffect(prevEffect)
+                withAnimation(.spring(duration: 0.3)) {
+                    showingEffect = true
+                    demoEffect = prevEffect
+                }
+            }
         }
     }
 
@@ -240,24 +276,24 @@ struct GlassProgressBar: View {
     let currentStep: Int
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.sm) {
             // Step indicators
             HStack(spacing: 0) {
                 ForEach(0..<steps, id: \.self) { step in
                     Circle()
-                        .fill(step <= currentStep ? Color.cyan : Color.white.opacity(0.3))
-                        .frame(width: 8, height: 8)
+                        .fill(step <= currentStep ? Color.riffPrimary : Color.primary.opacity(0.2))
+                        .frame(width: 10, height: 10)
                         .overlay {
                             if step == currentStep {
                                 Circle()
-                                    .stroke(Color.cyan, lineWidth: 2)
-                                    .frame(width: 14, height: 14)
+                                    .stroke(Color.riffPrimary, lineWidth: 2)
+                                    .frame(width: 18, height: 18)
                             }
                         }
 
                     if step < steps - 1 {
                         Rectangle()
-                            .fill(step < currentStep ? Color.cyan : Color.white.opacity(0.2))
+                            .fill(step < currentStep ? Color.riffPrimary : Color.primary.opacity(0.15))
                             .frame(height: 2)
                     }
                 }
@@ -266,7 +302,7 @@ struct GlassProgressBar: View {
 
             // Step counter
             Text("Step \(currentStep + 1) of \(steps)")
-                .font(.caption)
+                .font(Typography.caption())
                 .foregroundStyle(.secondary)
         }
     }
@@ -382,47 +418,36 @@ struct GlassTourNavigation: View {
     var namespace: Namespace.ID
 
     var body: some View {
-        GlassEffectContainer(spacing: 12) {
+        HStack(spacing: Spacing.md) {
             if currentStep > 0 {
                 Button(action: onBack) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: Spacing.xs) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
                         Text("Back")
                             .font(.headline)
                     }
+                    .foregroundStyle(.primary)
                     .frame(minWidth: 80)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
+                    .padding(.vertical, Spacing.md)
+                    .padding(.horizontal, Spacing.lg)
                 }
-                .glassEffect(.regular.interactive(), in: Capsule())
-                .glassEffectID("backButton", in: namespace)
+                .buttonStyle(.glass)
             }
 
             Button(action: onNext) {
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.xs) {
                     Text(actionLabel)
                         .font(.headline)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundStyle(.white)
-                .frame(minWidth: 140)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 20)
-                .background {
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [.cyan, .cyan.opacity(0.8)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                }
+                .foregroundStyle(.primary)
+                .frame(minWidth: 160)
+                .padding(.vertical, Spacing.md)
+                .padding(.horizontal, Spacing.lg)
             }
-            .glassEffect(.clear.interactive(), in: Capsule())
-            .glassEffectID("nextButton", in: namespace)
+            .buttonStyle(.glassProminent)
         }
     }
 }
@@ -456,8 +481,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .foregroundStyle(.secondary)
             .frame(minWidth: 100)
             .padding(.vertical, 14)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }

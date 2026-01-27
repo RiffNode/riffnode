@@ -188,6 +188,15 @@ This project was built for the **Apple Swift Student Challenge 2026**, showcasin
 
 ## Changelog
 
+### v1.5.0 (2026-01-28)
+- **External Audio Interface Support** - Full Scarlett Solo USB compatibility
+- **Multi-channel Audio Visualization** - Properly reads from all input channels
+- **Vibrant Animated Background** - Dynamic mesh gradient with pink/lavender/blue/teal
+- **Audio Route Change Detection** - Automatically reinstalls visualization when switching devices
+- **UI Polish** - Removed harsh colored borders, cleaner glass effects
+- **Tour Button** - Now uses transparent glass styling
+- **Bug Fixes** - Fixed Mac Catalyst popover orientation crash
+
 ### v1.4.0 (2026-01-20)
 - Complete UI redesign with Apple's Liquid Glass design
 - Removed unnecessary icons and emojis for cleaner interface

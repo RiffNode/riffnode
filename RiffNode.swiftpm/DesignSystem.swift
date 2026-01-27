@@ -1,75 +1,153 @@
 import SwiftUI
 
-// MARK: - RiffNode Liquid Glass Design System
-// Apple iOS 26+ Liquid Glass design language implementation
-// Using native .glassEffect() modifier when available
+// MARK: - RiffNode Design System
+// Apple iOS 26+ Human Interface Guidelines Compliant
+// Premium, refined aesthetics with native Liquid Glass
+
+// MARK: - Design Tokens
+
+/// Spacing scale following Apple's 8pt grid system
+enum Spacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 16
+    static let lg: CGFloat = 24
+    static let xl: CGFloat = 32
+    static let xxl: CGFloat = 48
+}
+
+/// Corner radius scale for consistent rounded corners
+enum CornerRadius {
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let pill: CGFloat = 100
+}
+
+/// Semantic colors following Apple HIG - uses system colors that adapt to appearance
+extension Color {
+    // MARK: - Brand Colors (Muted, Professional)
+    
+    /// Primary brand color - used for main actions and highlights
+    static let riffPrimary = Color.indigo
+    
+    /// Secondary accent for subtle highlights
+    static let riffSecondary = Color.teal
+    
+    // MARK: - Effect Category Colors (Muted Palette)
+    
+    /// Dynamics effects (Compressor) - calm blue
+    static let riffDynamics = Color(red: 0.35, green: 0.55, blue: 0.75)
+    
+    /// Filter/EQ effects - warm amber
+    static let riffFilter = Color(red: 0.75, green: 0.6, blue: 0.35)
+    
+    /// Gain/Dirt effects - earthy orange
+    static let riffGain = Color(red: 0.8, green: 0.5, blue: 0.35)
+    
+    /// Modulation effects - cool teal
+    static let riffModulation = Color(red: 0.35, green: 0.65, blue: 0.6)
+    
+    /// Time/Ambience effects - soft purple
+    static let riffAmbience = Color(red: 0.55, green: 0.45, blue: 0.7)
+    
+    // MARK: - Semantic Colors
+    
+    /// Success/active state
+    static let riffSuccess = Color.green
+    
+    /// Warning/caution state
+    static let riffWarning = Color.orange
+    
+    /// Error/danger state
+    static let riffError = Color.red
+}
+
+/// Typography presets following Apple's type scale with Dynamic Type support
+enum Typography {
+    /// Large display titles
+    static func largeTitle() -> Font { .largeTitle.weight(.bold) }
+    
+    /// Section headers
+    static func title() -> Font { .title2.weight(.semibold) }
+    
+    /// Card headers
+    static func headline() -> Font { .headline }
+    
+    /// Body text
+    static func body() -> Font { .body }
+    
+    /// Secondary text
+    static func subheadline() -> Font { .subheadline }
+    
+    /// Small labels
+    static func caption() -> Font { .caption.weight(.medium) }
+    
+    /// Numeric values (monospaced)
+    static func mono() -> Font { .system(.body, design: .monospaced).weight(.medium) }
+    
+    /// Small numeric values
+    static func monoSmall() -> Font { .system(.caption, design: .monospaced).weight(.semibold) }
+}
 
 // MARK: - Adaptive Background
 
-/// Creates an adaptive mesh gradient background that responds to light/dark mode
+/// Creates a vibrant mesh gradient background for iOS 26 Liquid Glass
+/// Apple's Liquid Glass shines on colorful, dynamic backgrounds
 struct AdaptiveBackground: View {
     @Environment(\.colorScheme) private var colorScheme
-
+    @State private var phase: CGFloat = 0
+    
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                // Base gradient mesh
-                MeshGradient(
-                    width: 3,
-                    height: 3,
-                    points: [
-                        [0.0, 0.0], [0.5, 0.0], [1.0, 0.0],
-                        [0.0, 0.5], [0.5, 0.5], [1.0, 0.5],
-                        [0.0, 1.0], [0.5, 1.0], [1.0, 1.0]
-                    ],
-                    colors: meshColors
-                )
-
-                // Subtle noise texture for depth
-                Canvas { context, size in
-                    for _ in 0..<100 {
-                        let x = CGFloat.random(in: 0...size.width)
-                        let y = CGFloat.random(in: 0...size.height)
-                        let radius = CGFloat.random(in: 0.5...1.5)
-                        let opacity = Double.random(in: 0.01...0.03)
-
-                        context.fill(
-                            Path(ellipseIn: CGRect(x: x, y: y, width: radius, height: radius)),
-                            with: .color(.white.opacity(opacity))
-                        )
-                    }
-                }
-            }
+        TimelineView(.animation(minimumInterval: 0.05)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            
+            MeshGradient(
+                width: 3,
+                height: 3,
+                points: animatedPoints(time: time),
+                colors: meshColors
+            )
         }
         .ignoresSafeArea()
     }
+    
+    private func animatedPoints(time: Double) -> [SIMD2<Float>] {
+        let speed: Float = 0.3
+        let amplitude: Float = 0.08
+        let t = Float(time) * speed
+        
+        return [
+            [0.0, 0.0],
+            [0.5 + sin(t * 0.7) * amplitude, 0.0],
+            [1.0, 0.0],
+            
+            [0.0, 0.5 + cos(t * 0.5) * amplitude],
+            [0.5 + sin(t) * amplitude * 0.5, 0.5 + cos(t * 0.8) * amplitude * 0.5],
+            [1.0, 0.5 + sin(t * 0.6) * amplitude],
+            
+            [0.0, 1.0],
+            [0.5 + cos(t * 0.9) * amplitude, 1.0],
+            [1.0, 1.0]
+        ]
+    }
 
     private var meshColors: [Color] {
-        if colorScheme == .dark {
-            return [
-                Color(red: 0.08, green: 0.08, blue: 0.12),
-                Color(red: 0.10, green: 0.08, blue: 0.14),
-                Color(red: 0.06, green: 0.08, blue: 0.12),
-                Color(red: 0.08, green: 0.10, blue: 0.16),
-                Color(red: 0.10, green: 0.10, blue: 0.14),
-                Color(red: 0.08, green: 0.08, blue: 0.12),
-                Color(red: 0.06, green: 0.08, blue: 0.14),
-                Color(red: 0.08, green: 0.10, blue: 0.16),
-                Color(red: 0.10, green: 0.08, blue: 0.12)
-            ]
-        } else {
-            return [
-                Color(red: 0.95, green: 0.95, blue: 0.97),
-                Color(red: 0.92, green: 0.94, blue: 0.98),
-                Color(red: 0.96, green: 0.94, blue: 0.96),
-                Color(red: 0.94, green: 0.96, blue: 0.98),
-                Color(red: 0.95, green: 0.95, blue: 0.97),
-                Color(red: 0.93, green: 0.95, blue: 0.98),
-                Color(red: 0.96, green: 0.94, blue: 0.96),
-                Color(red: 0.94, green: 0.96, blue: 0.98),
-                Color(red: 0.95, green: 0.95, blue: 0.97)
-            ]
-        }
+        // Vibrant, Apple-like gradient colors - great for Liquid Glass refraction
+        return [
+            Color(red: 0.95, green: 0.6, blue: 0.7),   // Soft pink
+            Color(red: 0.7, green: 0.5, blue: 0.9),    // Lavender
+            Color(red: 0.5, green: 0.7, blue: 0.95),   // Sky blue
+            
+            Color(red: 0.9, green: 0.7, blue: 0.5),    // Warm peach
+            Color(red: 0.85, green: 0.85, blue: 0.95), // Soft white-lavender center
+            Color(red: 0.5, green: 0.85, blue: 0.8),   // Teal accent
+            
+            Color(red: 0.95, green: 0.85, blue: 0.6),  // Warm gold
+            Color(red: 0.6, green: 0.7, blue: 0.95),   // Periwinkle
+            Color(red: 0.7, green: 0.9, blue: 0.85)    // Mint
+        ]
     }
 }
 
@@ -98,33 +176,11 @@ struct GlassCard<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            .background {
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(.ultraThinMaterial)
-                    .overlay {
-                        if let tint = tint {
-                            RoundedRectangle(cornerRadius: cornerRadius)
-                                .fill(tint.opacity(0.1))
-                        }
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: cornerRadius)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [
-                                        .white.opacity(0.3),
-                                        .white.opacity(0.1),
-                                        .white.opacity(0.05)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
-                    .shadow(color: .black.opacity(0.1), radius: 10, y: 5)
-            }
-            .glassEffect(.regular.tint(tint ?? .clear), in: RoundedRectangle(cornerRadius: cornerRadius))
+            // iOS 26 Liquid Glass: Use native glassEffect as primary styling
+            .glassEffect(
+                .regular.tint(tint ?? .clear).interactive(),
+                in: RoundedRectangle(cornerRadius: cornerRadius)
+            )
     }
 }
 
@@ -146,29 +202,9 @@ struct GlassToolbar<Content: View>: View {
     }
 }
 
-// MARK: - Glass Button Style
-
-/// Interactive glass button with scale, bounce, and shimmer effects
-struct GlassButtonStyle: ButtonStyle {
-    var tint: Color
-    var isSmall: Bool
-
-    init(tint: Color = .accentColor, isSmall: Bool = false) {
-        self.tint = tint
-        self.isSmall = isSmall
-    }
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(isSmall ? .subheadline.weight(.medium) : .headline.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, isSmall ? 14 : 20)
-            .padding(.vertical, isSmall ? 8 : 12)
-            .glassEffect(.regular.tint(tint).interactive(), in: Capsule())
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
-    }
-}
+// MARK: - Native iOS 26 Glass Button Style
+// iOS 26 provides native GlassButtonStyle - use .buttonStyle(.glass)
+// For prominent buttons use .buttonStyle(.glassProminent)
 
 // MARK: - Glass Pill Button Style
 
@@ -294,9 +330,9 @@ struct GlassSlider: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    // Track background with glass effect
+                    // Track background with native glass effect
                     Capsule()
-                        .fill(.ultraThinMaterial)
+                        .glassEffect(.regular, in: Capsule())
                         .frame(height: 6)
 
                     // Filled track
@@ -400,21 +436,10 @@ struct GlassKnob: View {
                     .frame(width: size + 8, height: size + 8)
                     .rotationEffect(.degrees(135))
 
-                // Knob body with glass effect
+                // Knob body with native glass effect
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .glassEffect(.regular.interactive(), in: Circle())
                     .frame(width: size, height: size)
-                    .overlay {
-                        Circle()
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.4), .white.opacity(0.1)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
-                    }
                     .shadow(color: isDragging ? tint.opacity(0.4) : .black.opacity(0.1), radius: isDragging ? 8 : 4)
 
                 // Indicator line
@@ -675,7 +700,7 @@ extension View {
     func glassCard(tint: Color? = nil, cornerRadius: CGFloat = 20, padding: CGFloat = 16) -> some View {
         self
             .padding(padding)
-            .glassEffect(.regular.tint(tint ?? .clear), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .glassEffect(.regular.tint(tint ?? .clear).interactive(), in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 
     /// Apply glass pill styling
@@ -683,9 +708,15 @@ extension View {
         self
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .glassEffect(.regular, in: Capsule())
+            .glassEffect(.regular.interactive(), in: Capsule())
     }
 }
+
+// MARK: - Native iOS 26 Glass Button Styles
+// iOS 26 provides native button styles:
+// - .buttonStyle(.glass) - Standard glass button
+// - .buttonStyle(.glassProminent) - Prominent glass button
+// Use these directly instead of custom implementations
 
 // MARK: - Preview
 
@@ -707,13 +738,13 @@ extension View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                // Buttons
+                // Native iOS 26 Glass Buttons
                 HStack(spacing: 16) {
-                    Button("Primary") {}
-                        .buttonStyle(GlassButtonStyle(tint: .cyan))
+                    Button("Glass") {}
+                        .buttonStyle(.glass)
 
-                    Button("Small") {}
-                        .buttonStyle(GlassButtonStyle(tint: .orange, isSmall: true))
+                    Button("Prominent") {}
+                        .buttonStyle(.glassProminent)
 
                     GlassIconButton(icon: "gear", tint: .primary) {}
                 }

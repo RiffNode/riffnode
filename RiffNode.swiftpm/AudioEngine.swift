@@ -69,12 +69,44 @@ final class AudioEngineManager: AudioManaging {
     
     // Store processing format for rebuilding audio chain
     private var processingFormat: AVAudioFormat?
+    
+    // Configuration change observer
+    private var configurationObserver: Any?
 
     // MARK: - Initialization
 
     init() {
         setupDefaultEffectsChain()
         detectAudioInputDevices()
+        setupConfigurationChangeObserver()
+    }
+    
+    private func setupConfigurationChangeObserver() {
+        // Listen for audio route changes (device switches)
+        // Use AVAudioSession.routeChangeNotification which works on iOS/Mac Catalyst
+        #if os(iOS) || targetEnvironment(macCatalyst)
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor in
+                self?.handleAudioConfigurationChange()
+            }
+        }
+        #endif
+    }
+    
+    private func handleAudioConfigurationChange() {
+        print("🔄 Audio route changed - reinstalling visualization tap")
+        
+        // Refresh device detection
+        detectAudioInputDevices()
+        
+        // Reinstall the visualization tap if engine is running
+        if isRunning {
+            startRealAudioVisualization()
+        }
     }
 
     private func setupDefaultEffectsChain() {
@@ -619,34 +651,12 @@ final class AudioEngineManager: AudioManaging {
 
         input.removeTap(onBus: 0)
 
-        // Pre-access the shared buffer on main thread to ensure initialization
-        let sharedBuffer = AudioSampleBuffer.shared
-        _ = sharedBuffer.read() // Force initialization
-
-        input.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
-            // ⚠️ BACKGROUND AUDIO THREAD - NO SELF CAPTURE ALLOWED
-
-            guard let channelData = buffer.floatChannelData else { return }
-            let frameLength = Int(buffer.frameLength)
-            guard frameLength > 0 else { return }
-
-            let channelPtr = channelData[0]
-            let strideStep = 4
-            let outputSize = frameLength / strideStep
-            guard outputSize > 0 else { return }
-
-            var samples = [Float](repeating: 0, count: outputSize)
-            for i in 0..<outputSize {
-                samples[i] = channelPtr[i * strideStep]
-            }
-
-            // Use free functions to avoid any MainActor association
-            let rms = audioCalculateRMS(samples)
-            let waveform = audioDownsampleForDisplay(samples, targetCount: 128)
-
-            // Write to thread-safe buffer (no MainActor dependency)
-            AudioSampleBuffer.shared.write(samples: samples, waveform: waveform, rms: rms)
-        }
+        // CRITICAL FIX for Swift 6 Strict Concurrency:
+        // Use a nonisolated function reference to completely break MainActor inheritance.
+        // The closure passed to installTap would inherit @MainActor isolation from this class,
+        // causing a crash when the closure executes on the audio thread.
+        // By using a global function reference, we ensure no actor isolation is inherited.
+        input.installTap(onBus: 0, bufferSize: 1024, format: inputFormat, block: audioTapCallback)
 
         tapInstalled = true
 
@@ -1058,6 +1068,55 @@ enum AudioInputDeviceType: String {
         }
     }
 }
+
+// MARK: - Audio Tap Callback (Nonisolated - Critical for Swift 6 Concurrency)
+// This function MUST be a global/free function, NOT a method or closure.
+// When passed to installTap, it has NO actor isolation, preventing MainActor crashes.
+
+private func audioTapCallback(buffer: AVAudioPCMBuffer, time: AVAudioTime) {
+    // ✅ SAFE: This is a nonisolated global function.
+    // It runs on the audio thread with no MainActor association.
+    
+    guard let channelData = buffer.floatChannelData else { return }
+    let frameLength = Int(buffer.frameLength)
+    guard frameLength > 0 else { return }
+    
+    let channelCount = Int(buffer.format.channelCount)
+    let strideStep = 4
+    let outputSize = frameLength / strideStep
+    guard outputSize > 0 else { return }
+
+    // Read from BOTH channels and combine - Scarlett Solo guitar is on Input 2 (right channel)
+    var samples = [Float](repeating: 0, count: outputSize)
+    
+    for i in 0..<outputSize {
+        var maxSample: Float = 0
+        // Check all channels and take the maximum (handles mono/stereo and different input configs)
+        for ch in 0..<channelCount {
+            let sample = abs(channelData[ch][i * strideStep])
+            if sample > abs(maxSample) {
+                maxSample = channelData[ch][i * strideStep]
+            }
+        }
+        samples[i] = maxSample
+    }
+
+    // Use free functions to avoid any MainActor association
+    let rms = audioCalculateRMS(samples)
+    let waveform = audioDownsampleForDisplay(samples, targetCount: 128)
+    
+    // DEBUG: Print RMS every ~1 second (every ~43 callbacks at 44100Hz/1024 buffer)
+    audioTapDebugCounter += 1
+    if audioTapDebugCounter % 43 == 0 {
+        print("🎸 Audio tap: channels=\(channelCount), rms=\(rms), maxSample=\(samples.max() ?? 0)")
+    }
+
+    // Write to thread-safe buffer (no MainActor dependency)
+    AudioSampleBuffer.shared.write(samples: samples, waveform: waveform, rms: rms)
+}
+
+// Debug counter for tap callback (nonisolated(unsafe) required for Swift 6 strict concurrency)
+nonisolated(unsafe) private var audioTapDebugCounter: Int = 0
 
 // MARK: - Free Functions for Audio Processing (Thread-Safe)
 // These are NOT associated with any actor - safe to call from any thread

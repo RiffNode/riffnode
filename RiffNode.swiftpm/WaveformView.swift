@@ -76,9 +76,9 @@ struct LevelMeterView: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .bottom) {
-                    // Glass background
+                    // Native iOS 26 glass background
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(.ultraThinMaterial)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 6))
 
                     // Level indicator with gradient
                     RoundedRectangle(cornerRadius: 6)
@@ -148,13 +148,13 @@ struct AudioVisualizationPanel: View {
     }
 
     var body: some View {
-        GlassCard(tint: .cyan, cornerRadius: 16) {
+        GlassCard(cornerRadius: 16) {
             VStack(spacing: 12) {
                 // Header
                 HStack {
                     HStack(spacing: 8) {
                         Image(systemName: "waveform.circle.fill")
-                            .foregroundStyle(.cyan)
+                            .foregroundStyle(.secondary)
                         Text("Visualizer")
                             .font(.headline)
                     }
@@ -173,13 +173,15 @@ struct AudioVisualizationPanel: View {
                                     .font(.system(size: 12, weight: .medium))
                                     .frame(width: 32, height: 28)
                                     .foregroundStyle(
-                                        visualizationMode == mode ? .cyan : .secondary
+                                        visualizationMode == mode ? .white : .secondary
                                     )
+                                    .background {
+                                        if visualizationMode == mode {
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(Color.riffPrimary)
+                                        }
+                                    }
                             }
-                            .glassEffect(
-                                visualizationMode == mode ? .regular.tint(.cyan) : .clear,
-                                in: RoundedRectangle(cornerRadius: 6)
-                            )
                             .buttonStyle(.plain)
                         }
                     }

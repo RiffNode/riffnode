@@ -43,7 +43,7 @@ struct EffectsChainView: View {
                     }
                     .font(.system(size: 13, weight: .semibold))
                 }
-                .buttonStyle(GlassButtonStyle(tint: .orange, isSmall: true))
+                .buttonStyle(.glass)
             }
             .padding(.horizontal)
 
@@ -172,21 +172,10 @@ struct GlassJackView: View {
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
-                // Jack housing with glass effect
+                // Jack housing with native iOS 26 glass effect
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(.ultraThinMaterial)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                     .frame(width: 44, height: 54)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                ),
-                                lineWidth: 1
-                            )
-                    }
 
                 // Jack hole
                 Circle()
@@ -372,10 +361,7 @@ struct GlassEffectEducationView: View {
             )
         }
         .padding()
-        .background {
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial.opacity(0.5))
-        }
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

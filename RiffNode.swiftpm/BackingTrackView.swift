@@ -19,7 +19,7 @@ struct BackingTrackView: View {
     // MARK: - Body
 
     var body: some View {
-        GlassCard(tint: .purple, cornerRadius: 16) {
+        GlassCard(cornerRadius: 16) {
             VStack(spacing: 16) {
                 // Header
                 GlassMediaPlayerHeader(
@@ -109,7 +109,7 @@ struct GlassMediaPlayerHeader: View {
         HStack {
             HStack(spacing: 8) {
                 Image(systemName: "music.note.list")
-                    .foregroundStyle(.purple)
+                    .foregroundStyle(.secondary)
                 Text("Backing Track")
                     .font(.headline)
             }
@@ -122,7 +122,7 @@ struct GlassMediaPlayerHeader: View {
                     Text(hasTrack ? "Change" : "Import")
                 }
             }
-            .buttonStyle(GlassButtonStyle(tint: .purple, isSmall: true))
+            .buttonStyle(.glass)
         }
     }
 }
@@ -139,35 +139,16 @@ struct GlassTrackInfoView: View {
             // Album art placeholder / waveform indicator
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
+                    .fill(.clear) // Native glass applied via .glassEffect()
                     .frame(width: 64, height: 64)
 
                 if isLoading {
                     ProgressView()
                         .controlSize(.regular)
-                        .tint(.purple)
+                        .tint(.primary)
                 } else if trackName != nil {
                     // Mini waveform animation when playing
-                    HStack(spacing: 3) {
-                        ForEach(0..<5, id: \.self) { i in
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.purple.opacity(0.8), .purple.opacity(0.4)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                                .frame(width: 4, height: isPlaying ? CGFloat.random(in: 12...32) : 8)
-                                .animation(
-                                    isPlaying
-                                        ? .easeInOut(duration: 0.3 + Double(i) * 0.1)
-                                            .repeatForever(autoreverses: true)
-                                        : .default,
-                                    value: isPlaying
-                                )
-                        }
-                    }
+                    MiniWaveformView(isPlaying: isPlaying)
                 } else {
                     Image(systemName: "waveform")
                         .font(.title2)
@@ -223,6 +204,39 @@ struct GlassTrackInfoView: View {
     }
 }
 
+// MARK: - Mini Waveform View
+
+/// Extracted waveform visualization with stable bar heights
+private struct MiniWaveformView: View {
+    let isPlaying: Bool
+
+    // Stable heights per bar - computed once
+    private static let barHeights: [CGFloat] = [20, 28, 16, 32, 24]
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<5, id: \.self) { i in
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: [.primary.opacity(0.6), .primary.opacity(0.3)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 4, height: isPlaying ? Self.barHeights[i] : 8)
+                    .animation(
+                        isPlaying
+                            ? .easeInOut(duration: 0.3 + Double(i) * 0.1)
+                                .repeatForever(autoreverses: true)
+                            : .default,
+                        value: isPlaying
+                    )
+            }
+        }
+    }
+}
+
 // MARK: - Glass Transport Controls
 
 struct GlassTransportControls: View {
@@ -271,7 +285,7 @@ struct GlassTransportControls: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: hasTrack ? [.purple, .purple.opacity(0.8)] : [.gray, .gray.opacity(0.8)],
+                                    colors: hasTrack ? [Color.riffPrimary, Color.riffPrimary.opacity(0.8)] : [.gray, .gray.opacity(0.8)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -292,7 +306,7 @@ struct GlassTransportControls: View {
                 GlassSlider(
                     value: $volume,
                     range: 0...1,
-                    tint: .purple,
+                    tint: Color.riffPrimary,
                     label: "",
                     showValue: false
                 )
