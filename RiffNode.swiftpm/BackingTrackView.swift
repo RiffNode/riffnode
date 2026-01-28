@@ -246,17 +246,17 @@ struct GlassTransportControls: View {
     @Namespace private var transportNamespace
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Transport buttons
-            GlassEffectContainer(spacing: 8) {
+        VStack(spacing: 12) {
+            // Centered transport buttons
+            HStack(spacing: 16) {
                 // Stop button
                 Button {
                     onStop()
                 } label: {
                     Image(systemName: "stop.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(hasTrack && isPlaying ? .primary : .secondary)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 48, height: 48)
                 }
                 .glassEffect(.regular.interactive(), in: Circle())
                 .disabled(!hasTrack || !isPlaying)
@@ -272,11 +272,11 @@ struct GlassTransportControls: View {
                                 .tint(.white)
                         } else {
                             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 20, weight: .bold))
+                                .font(.system(size: 22, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }
-                    .frame(width: 52, height: 52)
+                    .frame(width: 56, height: 56)
                 }
                 .glassEffect(
                     hasTrack ? .regular.tint(Color.riffPrimary).interactive() : .regular.interactive(),
@@ -286,27 +286,21 @@ struct GlassTransportControls: View {
                 .disabled(!hasTrack)
             }
 
-            // Volume slider
+            // Volume slider - native iOS Liquid Glass
             HStack(spacing: 10) {
                 Image(systemName: "speaker.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
 
-                GlassSlider(
-                    value: $volume,
-                    range: 0...1,
-                    tint: Color.riffPrimary,
-                    label: "",
-                    showValue: false
-                )
-                .frame(maxWidth: .infinity)
+                Slider(value: $volume, in: 0...1)
+                    .tint(.primary)
 
                 Image(systemName: "speaker.wave.3.fill")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .glassEffect(.regular, in: Capsule())
         }
     }

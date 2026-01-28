@@ -135,20 +135,36 @@ struct AdaptiveBackground: View {
     }
 
     private var meshColors: [Color] {
-        // Muted, professional Apple-like colors - subtle and elegant
-        return [
-            Color(red: 0.85, green: 0.85, blue: 0.88),   // Soft grey-blue
-            Color(red: 0.88, green: 0.85, blue: 0.90),   // Subtle lavender-grey
-            Color(red: 0.90, green: 0.90, blue: 0.92),   // Light silver
-            
-            Color(red: 0.87, green: 0.88, blue: 0.92),   // Cool grey
-            Color(red: 0.92, green: 0.92, blue: 0.94),   // Bright center
-            Color(red: 0.88, green: 0.90, blue: 0.92),   // Steel blue-grey
-            
-            Color(red: 0.90, green: 0.88, blue: 0.90),   // Warm grey-purple
-            Color(red: 0.88, green: 0.88, blue: 0.92),   // Neutral grey
-            Color(red: 0.92, green: 0.91, blue: 0.93)    // Soft white
-        ]
+        // Clean, neutral Apple aesthetic - works well with Liquid Glass
+        if colorScheme == .dark {
+            return [
+                Color(red: 0.08, green: 0.08, blue: 0.12),   // Deep dark blue-grey
+                Color(red: 0.10, green: 0.08, blue: 0.14),   // Dark purple-grey  
+                Color(red: 0.06, green: 0.06, blue: 0.10),   // Near black
+                
+                Color(red: 0.12, green: 0.10, blue: 0.16),   // Subtle purple
+                Color(red: 0.08, green: 0.08, blue: 0.12),   // Center dark
+                Color(red: 0.10, green: 0.12, blue: 0.14),   // Slight blue tint
+                
+                Color(red: 0.06, green: 0.06, blue: 0.10),   // Bottom dark
+                Color(red: 0.08, green: 0.10, blue: 0.12),   // Blue-grey
+                Color(red: 0.10, green: 0.08, blue: 0.14)    // Purple-grey
+            ]
+        } else {
+            return [
+                Color(red: 0.94, green: 0.94, blue: 0.96),   // Clean light grey
+                Color(red: 0.96, green: 0.94, blue: 0.98),   // Hint of lavender
+                Color(red: 0.98, green: 0.98, blue: 0.99),   // Near white
+                
+                Color(red: 0.95, green: 0.96, blue: 0.98),   // Cool white
+                Color(red: 0.99, green: 0.99, blue: 1.00),   // Bright center
+                Color(red: 0.96, green: 0.97, blue: 0.98),   // Neutral
+                
+                Color(red: 0.97, green: 0.96, blue: 0.98),   // Warm tint
+                Color(red: 0.95, green: 0.95, blue: 0.97),   // Silver
+                Color(red: 0.98, green: 0.98, blue: 1.00)    // Clean white
+            ]
+        }
     }
 }
 
@@ -177,9 +193,9 @@ struct GlassCard<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            // iOS 26 Liquid Glass: Use native glassEffect as primary styling
+            // iOS 26 Liquid Glass: Non-interactive display container
             .glassEffect(
-                .regular.tint(tint ?? .clear).interactive(),
+                tint != nil ? .regular.tint(tint!) : .regular,
                 in: RoundedRectangle(cornerRadius: cornerRadius)
             )
     }
@@ -480,13 +496,12 @@ struct GlassKnob: View {
 
 // MARK: - Glass Tab Bar
 
-/// A glass tab bar with morphing selection indicator
+/// A glass tab bar using native iOS Picker for drag/slide support
+/// In iOS 26, Picker automatically uses Liquid Glass styling
 struct GlassTabBar<Tab: Hashable & CaseIterable & Sendable>: View where Tab: RawRepresentable, Tab.RawValue == String {
     @Binding var selection: Tab
     var tint: Color
     let icon: (Tab) -> String
-
-    @Namespace private var namespace
 
     init(
         selection: Binding<Tab>,
@@ -499,40 +514,16 @@ struct GlassTabBar<Tab: Hashable & CaseIterable & Sendable>: View where Tab: Raw
     }
 
     var body: some View {
-        GlassEffectContainer(spacing: 4) {
+        Picker("", selection: $selection) {
             ForEach(Array(Tab.allCases), id: \.self) { tab in
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                        selection = tab
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: icon(tab))
-                            .font(.system(size: 14, weight: .medium))
-
-                        Text(tab.rawValue)
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .foregroundStyle(selection == tab ? .white : .secondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background {
-                        if selection == tab {
-                            Capsule()
-                                .fill(tint)
-                        }
-                    }
-                    .glassEffect(
-                        selection == tab ? .clear : .regular.interactive(),
-                        in: Capsule()
-                    )
-                    .glassEffectID(tab, in: namespace)
-                }
-                .buttonStyle(.plain)
+                Label(tab.rawValue, systemImage: icon(tab))
+                    .tag(tab)
             }
         }
+        .pickerStyle(.segmented)
     }
 }
+
 
 // MARK: - Glass Status Indicator
 
@@ -741,19 +732,19 @@ extension Color {
 // MARK: - View Extensions
 
 extension View {
-    /// Apply glass card styling
+    /// Apply glass card styling - non-interactive display container
     func glassCard(tint: Color? = nil, cornerRadius: CGFloat = 20, padding: CGFloat = 16) -> some View {
         self
             .padding(padding)
-            .glassEffect(.regular.tint(tint ?? .clear).interactive(), in: RoundedRectangle(cornerRadius: cornerRadius))
+            .glassEffect(tint != nil ? .regular.tint(tint!) : .regular, in: RoundedRectangle(cornerRadius: cornerRadius))
     }
 
-    /// Apply glass pill styling
+    /// Apply glass pill styling - non-interactive display container
     func glassPill() -> some View {
         self
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffect(.regular, in: Capsule())
     }
 }
 
@@ -765,69 +756,21 @@ extension View {
 
 // MARK: - Glass Segment Slider
 
-/// A liquid glass segmented slider control
+/// A liquid glass segmented slider control using native iOS Picker
+/// In iOS 26, Picker automatically uses Liquid Glass styling with drag support
 struct GlassSegmentSlider<T: Hashable & CaseIterable, Content: View>: View where T.AllCases: RandomAccessCollection {
     @Binding var selection: T
     let options: T.AllCases
     @ViewBuilder let content: (T) -> Content
 
-    @Namespace private var sliderNamespace
-
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                Button {
-                    withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
-                        selection = option
-                    }
-                } label: {
-                    content(option)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 32)
-                        .foregroundStyle(selection == option ? .white : .secondary)
-                }
-                .buttonStyle(.plain)
-                .background {
-                    if selection == option {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.riffPrimary)
-                            .matchedGeometryEffect(id: "slider", in: sliderNamespace)
-                            .shadow(color: Color.riffPrimary.opacity(0.4), radius: 8, x: 0, y: 2)
-                    }
-                }
+        Picker("", selection: $selection) {
+            ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                content(option)
+                    .tag(option)
             }
         }
-        .padding(4)
-        .background {
-            ZStack {
-                // Base glass
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-
-                // Specular highlight
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.3), .white.opacity(0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .blendMode(.overlay)
-
-                // Rim light
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.5), .white.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        }
-        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .pickerStyle(.segmented)
     }
 }
 

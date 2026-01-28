@@ -92,26 +92,17 @@ final class SetupViewModel {
         isLoading = true
 
         do {
-            switch currentStep {
-            case .welcome:
-                advanceStep()
-
-            case .permission:
-                await audioEngine.requestMicrophonePermission()
-                if audioEngine.hasPermission {
-                    advanceStep()
-                } else if audioEngine.errorMessage == nil {
-                    audioEngine.errorMessage = "Microphone permission is required to continue."
-                }
-
-            case .engine:
+            // Single-step setup: request permission and start engine automatically
+            await audioEngine.requestMicrophonePermission()
+            
+            if audioEngine.hasPermission {
                 try await audioEngine.setupEngine()
                 try audioEngine.start()
-                advanceStep()
-                audioEngine.errorMessage = nil
-
-            case .ready:
+                currentStep = .ready
                 isSetupComplete = true
+                audioEngine.errorMessage = nil
+            } else if audioEngine.errorMessage == nil {
+                audioEngine.errorMessage = "Microphone permission is required to continue."
             }
         } catch {
             audioEngine.errorMessage = error.localizedDescription
