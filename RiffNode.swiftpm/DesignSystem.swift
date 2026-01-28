@@ -93,78 +93,70 @@ enum Typography {
 
 // MARK: - Adaptive Background
 
-/// Creates a subtle, elegant mesh gradient background for iOS 26 Liquid Glass
-/// Muted, professional colors with gentle organic movement - Apple aesthetic
+/// Creates a dynamic background with floating color orbs for iOS 26 Liquid Glass
+/// Animated blurry circles that move organically behind the content
 struct AdaptiveBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var phase: CGFloat = 0
     
     var body: some View {
-        TimelineView(.animation(minimumInterval: 0.05)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
+        ZStack {
+            // Base color
+            (colorScheme == .dark ? Color.black : Color.white)
             
-            MeshGradient(
-                width: 3,
-                height: 3,
-                points: animatedPoints(time: time),
-                colors: meshColors
-            )
+            // Animated floating orbs
+            TimelineView(.animation(minimumInterval: 0.03)) { timeline in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                
+                Canvas { context, size in
+                    // Draw multiple animated color orbs
+                    let orbs: [(color: Color, baseX: CGFloat, baseY: CGFloat, radius: CGFloat, speedX: Double, speedY: Double)] = colorScheme == .dark ? [
+                        (.purple.opacity(0.4), 0.2, 0.3, 200, 0.3, 0.2),
+                        (.blue.opacity(0.35), 0.8, 0.2, 180, 0.2, 0.35),
+                        (.cyan.opacity(0.3), 0.5, 0.7, 220, 0.25, 0.15),
+                        (.pink.opacity(0.25), 0.3, 0.8, 160, 0.35, 0.25),
+                        (.indigo.opacity(0.3), 0.7, 0.5, 190, 0.15, 0.3)
+                    ] : [
+                        (.purple.opacity(0.2), 0.2, 0.3, 200, 0.3, 0.2),
+                        (.blue.opacity(0.15), 0.8, 0.2, 180, 0.2, 0.35),
+                        (.cyan.opacity(0.15), 0.5, 0.7, 220, 0.25, 0.15),
+                        (.pink.opacity(0.12), 0.3, 0.8, 160, 0.35, 0.25),
+                        (.mint.opacity(0.15), 0.7, 0.5, 190, 0.15, 0.3)
+                    ]
+                    
+                    for orb in orbs {
+                        // Calculate animated position
+                        let x = orb.baseX * size.width + sin(time * orb.speedX) * 80
+                        let y = orb.baseY * size.height + cos(time * orb.speedY) * 60
+                        
+                        // Create radial gradient for soft glow effect
+                        let center = CGPoint(x: x, y: y)
+                        let gradient = Gradient(stops: [
+                            .init(color: orb.color, location: 0),
+                            .init(color: orb.color.opacity(0.5), location: 0.3),
+                            .init(color: orb.color.opacity(0), location: 1)
+                        ])
+                        
+                        context.fill(
+                            Circle().path(in: CGRect(
+                                x: x - orb.radius,
+                                y: y - orb.radius,
+                                width: orb.radius * 2,
+                                height: orb.radius * 2
+                            )),
+                            with: .radialGradient(
+                                gradient,
+                                center: center,
+                                startRadius: 0,
+                                endRadius: orb.radius
+                            )
+                        )
+                    }
+                }
+            }
+            .blur(radius: 60)
         }
         .ignoresSafeArea()
-    }
-    
-    private func animatedPoints(time: Double) -> [SIMD2<Float>] {
-        // Slower, more subtle movement
-        let speed: Float = 0.15
-        let amplitude: Float = 0.05
-        let t = Float(time) * speed
-        
-        return [
-            [0.0, 0.0],
-            [0.5 + sin(t * 0.5) * amplitude, 0.0],
-            [1.0, 0.0],
-            
-            [0.0, 0.5 + cos(t * 0.4) * amplitude],
-            [0.5 + sin(t * 0.6) * amplitude * 0.3, 0.5 + cos(t * 0.5) * amplitude * 0.3],
-            [1.0, 0.5 + sin(t * 0.4) * amplitude],
-            
-            [0.0, 1.0],
-            [0.5 + cos(t * 0.6) * amplitude, 1.0],
-            [1.0, 1.0]
-        ]
-    }
-
-    private var meshColors: [Color] {
-        // Clean, neutral Apple aesthetic - works well with Liquid Glass
-        if colorScheme == .dark {
-            return [
-                Color(red: 0.08, green: 0.08, blue: 0.12),   // Deep dark blue-grey
-                Color(red: 0.10, green: 0.08, blue: 0.14),   // Dark purple-grey  
-                Color(red: 0.06, green: 0.06, blue: 0.10),   // Near black
-                
-                Color(red: 0.12, green: 0.10, blue: 0.16),   // Subtle purple
-                Color(red: 0.08, green: 0.08, blue: 0.12),   // Center dark
-                Color(red: 0.10, green: 0.12, blue: 0.14),   // Slight blue tint
-                
-                Color(red: 0.06, green: 0.06, blue: 0.10),   // Bottom dark
-                Color(red: 0.08, green: 0.10, blue: 0.12),   // Blue-grey
-                Color(red: 0.10, green: 0.08, blue: 0.14)    // Purple-grey
-            ]
-        } else {
-            return [
-                Color(red: 0.94, green: 0.94, blue: 0.96),   // Clean light grey
-                Color(red: 0.96, green: 0.94, blue: 0.98),   // Hint of lavender
-                Color(red: 0.98, green: 0.98, blue: 0.99),   // Near white
-                
-                Color(red: 0.95, green: 0.96, blue: 0.98),   // Cool white
-                Color(red: 0.99, green: 0.99, blue: 1.00),   // Bright center
-                Color(red: 0.96, green: 0.97, blue: 0.98),   // Neutral
-                
-                Color(red: 0.97, green: 0.96, blue: 0.98),   // Warm tint
-                Color(red: 0.95, green: 0.95, blue: 0.97),   // Silver
-                Color(red: 0.98, green: 0.98, blue: 1.00)    // Clean white
-            ]
-        }
     }
 }
 

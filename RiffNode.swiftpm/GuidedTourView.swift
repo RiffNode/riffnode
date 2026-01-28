@@ -136,16 +136,11 @@ struct GuidedTourView: View {
                 )
                 .padding(.bottom, Spacing.xl)
 
-                // Skip option - subtle
+                // Skip option - native glass button
                 Button("Skip Tour") {
                     onComplete()
                 }
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-                .padding(.vertical, Spacing.sm)
-                .padding(.horizontal, Spacing.lg)
-                .buttonStyle(.plain)
-                .glassEffect(.clear.interactive(), in: Capsule())
+                .buttonStyle(.glass)
                 .padding(.bottom, Spacing.lg)
             }
         }
@@ -427,33 +422,19 @@ struct GlassTourNavigation: View {
                 Button(action: onBack) {
                     HStack(spacing: Spacing.xs) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
                         Text("Back")
-                            .font(.headline.weight(.semibold))
                     }
-                    .foregroundStyle(.primary)
-                    .frame(minWidth: 80)
-                    .padding(.vertical, Spacing.md)
-                    .padding(.horizontal, Spacing.lg)
                 }
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: Capsule())
+                .buttonStyle(.glass)
             }
 
             Button(action: onNext) {
                 HStack(spacing: Spacing.xs) {
                     Text(actionLabel)
-                        .font(.headline.weight(.semibold))
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundStyle(.primary)
-                .frame(minWidth: 160)
-                .padding(.vertical, Spacing.md)
-                .padding(.horizontal, Spacing.lg)
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: Capsule())
+            .buttonStyle(.glass)
         }
     }
 }
@@ -483,11 +464,6 @@ struct PrimaryButtonStyle: ButtonStyle {
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
-            .foregroundStyle(.secondary)
-            .frame(minWidth: 100)
-            .padding(.vertical, 14)
-            .glassEffect(.regular.interactive(), in: Capsule())
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(duration: 0.2), value: configuration.isPressed)
     }

@@ -127,29 +127,17 @@ struct WelcomeView: View {
                     } label: {
                         HStack(spacing: Spacing.sm) {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 18, weight: .semibold))
                             Text("Take the Tour")
-                                .font(.headline.weight(.semibold))
                         }
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: 280)
-                        .padding(.vertical, Spacing.md)
-                        .padding(.horizontal, Spacing.lg)
                     }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .buttonStyle(.glass)
                     
                     Button {
                         onSkipToMain()
                     } label: {
                         Text("Skip to Main")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.secondary)
-                            .padding(.vertical, Spacing.sm)
-                            .padding(.horizontal, Spacing.lg)
                     }
-                    .buttonStyle(.plain)
-                    .glassEffect(.clear.interactive(), in: Capsule())
+                    .buttonStyle(.glass)
                 } else {
                     // Single setup button
                     Button {
@@ -167,21 +155,13 @@ struct WelcomeView: View {
                                 ProgressView()
                                     .controlSize(.small)
                                 Text("Setting Up...")
-                                    .font(.headline.weight(.semibold))
                             } else {
                                 Image(systemName: "play.fill")
-                                    .font(.system(size: 16, weight: .semibold))
                                 Text("Get Started")
-                                    .font(.headline.weight(.semibold))
                             }
                         }
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: 280)
-                        .padding(.vertical, Spacing.md)
-                        .padding(.horizontal, Spacing.lg)
                     }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .buttonStyle(.glass)
                     .disabled(viewModel?.isLoading == true)
                     
                     // Subtitle explaining what happens
