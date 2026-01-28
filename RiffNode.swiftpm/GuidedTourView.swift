@@ -136,11 +136,18 @@ struct GuidedTourView: View {
                 )
                 .padding(.bottom, Spacing.xl)
 
-                // Skip option - native glass button
-                Button("Skip Tour") {
+                // Skip option - frosted glass button
+                Button {
                     onComplete()
+                } label: {
+                    Text("Skip Tour")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 20)
+                        .background(.ultraThinMaterial, in: Capsule())
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
                 .padding(.bottom, Spacing.lg)
             }
         }
@@ -423,18 +430,28 @@ struct GlassTourNavigation: View {
                     HStack(spacing: Spacing.xs) {
                         Image(systemName: "chevron.left")
                         Text("Back")
+                            .font(.headline.weight(.semibold))
                     }
+                    .foregroundStyle(.primary)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 20)
+                    .background(.ultraThinMaterial, in: Capsule())
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
             }
 
             Button(action: onNext) {
                 HStack(spacing: Spacing.xs) {
                     Text(actionLabel)
+                        .font(.headline.weight(.semibold))
                     Image(systemName: "chevron.right")
                 }
+                .foregroundStyle(.primary)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 24)
+                .background(.ultraThinMaterial, in: Capsule())
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.plain)
         }
     }
 }

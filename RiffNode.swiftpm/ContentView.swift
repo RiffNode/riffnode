@@ -128,16 +128,26 @@ struct WelcomeView: View {
                         HStack(spacing: Spacing.sm) {
                             Image(systemName: "sparkles")
                             Text("Take the Tour")
+                                .font(.headline.weight(.semibold))
                         }
+                        .foregroundStyle(.primary)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 28)
+                        .background(.ultraThinMaterial, in: Capsule())
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                     
                     Button {
                         onSkipToMain()
                     } label: {
                         Text("Skip to Main")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 20)
+                            .background(.ultraThinMaterial, in: Capsule())
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                 } else {
                     // Single setup button
                     Button {
@@ -155,13 +165,19 @@ struct WelcomeView: View {
                                 ProgressView()
                                     .controlSize(.small)
                                 Text("Setting Up...")
+                                    .font(.headline.weight(.semibold))
                             } else {
                                 Image(systemName: "play.fill")
                                 Text("Get Started")
+                                    .font(.headline.weight(.semibold))
                             }
                         }
+                        .foregroundStyle(.primary)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 28)
+                        .background(.ultraThinMaterial, in: Capsule())
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                     .disabled(viewModel?.isLoading == true)
                     
                     // Subtitle explaining what happens
