@@ -193,27 +193,11 @@ struct GlassCard<Content: View>: View {
     }
 }
 
-// MARK: - Glass Toolbar
-
-/// A floating glass toolbar for navigation and controls
-struct GlassToolbar<Content: View>: View {
-    let content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    var body: some View {
-        content
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .glassEffect(.regular, in: Capsule())
-    }
-}
-
 // MARK: - Native iOS 26 Glass Button Style
-// iOS 26 provides native GlassButtonStyle - use .buttonStyle(.glass)
-// For prominent buttons use .buttonStyle(.glassProminent)
+// iOS 26 provides native button styles:
+// - .buttonStyle(.glass) - Standard glass button with Liquid Glass effect
+// - .buttonStyle(.glassProminent) - Emphasized glass button (use sparingly, for CTAs)
+// For custom interactive glass controls, use .glassEffect(.regular.interactive(), in: Shape())
 
 // MARK: - Glass Pill Button Style
 
@@ -288,98 +272,9 @@ struct ScaleButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Glass Slider
-
-/// A modern glass-style slider control
-struct GlassSlider: View {
-    @Binding var value: Float
-    var range: ClosedRange<Float>
-    var tint: Color
-    var label: String
-    var showValue: Bool
-    var format: String
-
-    init(
-        value: Binding<Float>,
-        range: ClosedRange<Float> = 0...1,
-        tint: Color = .accentColor,
-        label: String = "",
-        showValue: Bool = true,
-        format: String = "%.0f"
-    ) {
-        self._value = value
-        self.range = range
-        self.tint = tint
-        self.label = label
-        self.showValue = showValue
-        self.format = format
-    }
-
-    private var normalizedValue: CGFloat {
-        CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !label.isEmpty || showValue {
-                HStack {
-                    if !label.isEmpty {
-                        Text(label)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if showValue {
-                        Text(String(format: format, value))
-                            .font(.caption.weight(.semibold).monospacedDigit())
-                            .foregroundStyle(tint)
-                    }
-                }
-            }
-
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Track background with native glass effect
-                    Capsule()
-                        .glassEffect(.regular, in: Capsule())
-                        .frame(height: 6)
-
-                    // Filled track
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [tint.opacity(0.8), tint],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geometry.size.width * normalizedValue, height: 6)
-
-                    // Thumb with glass effect
-                    Circle()
-                        .fill(.white)
-                        .frame(width: 20, height: 20)
-                        .shadow(color: tint.opacity(0.3), radius: 4, y: 2)
-                        .overlay {
-                            Circle()
-                                .fill(tint)
-                                .frame(width: 8, height: 8)
-                        }
-                        .offset(x: (geometry.size.width - 20) * normalizedValue)
-                }
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { gesture in
-                            let ratio = Float(gesture.location.x / geometry.size.width)
-                            let newValue = range.lowerBound + ratio * (range.upperBound - range.lowerBound)
-                            value = min(max(newValue, range.lowerBound), range.upperBound)
-                        }
-                )
-            }
-            .frame(height: 20)
-        }
-    }
-}
+// MARK: - Native iOS 26 Slider
+// Use native SwiftUI Slider which automatically gets Liquid Glass styling in iOS 26
+// Example: Slider(value: $value, in: 0...1).tint(.primary)
 
 // MARK: - Glass Knob
 
