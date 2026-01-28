@@ -93,8 +93,8 @@ enum Typography {
 
 // MARK: - Adaptive Background
 
-/// Creates a vibrant mesh gradient background for iOS 26 Liquid Glass
-/// Apple's Liquid Glass shines on colorful, dynamic backgrounds
+/// Creates a subtle, elegant mesh gradient background for iOS 26 Liquid Glass
+/// Muted, professional colors with gentle organic movement - Apple aesthetic
 struct AdaptiveBackground: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var phase: CGFloat = 0
@@ -114,39 +114,40 @@ struct AdaptiveBackground: View {
     }
     
     private func animatedPoints(time: Double) -> [SIMD2<Float>] {
-        let speed: Float = 0.3
-        let amplitude: Float = 0.08
+        // Slower, more subtle movement
+        let speed: Float = 0.15
+        let amplitude: Float = 0.05
         let t = Float(time) * speed
         
         return [
             [0.0, 0.0],
-            [0.5 + sin(t * 0.7) * amplitude, 0.0],
+            [0.5 + sin(t * 0.5) * amplitude, 0.0],
             [1.0, 0.0],
             
-            [0.0, 0.5 + cos(t * 0.5) * amplitude],
-            [0.5 + sin(t) * amplitude * 0.5, 0.5 + cos(t * 0.8) * amplitude * 0.5],
-            [1.0, 0.5 + sin(t * 0.6) * amplitude],
+            [0.0, 0.5 + cos(t * 0.4) * amplitude],
+            [0.5 + sin(t * 0.6) * amplitude * 0.3, 0.5 + cos(t * 0.5) * amplitude * 0.3],
+            [1.0, 0.5 + sin(t * 0.4) * amplitude],
             
             [0.0, 1.0],
-            [0.5 + cos(t * 0.9) * amplitude, 1.0],
+            [0.5 + cos(t * 0.6) * amplitude, 1.0],
             [1.0, 1.0]
         ]
     }
 
     private var meshColors: [Color] {
-        // Vibrant, Apple-like gradient colors - great for Liquid Glass refraction
+        // Muted, professional Apple-like colors - subtle and elegant
         return [
-            Color(red: 0.95, green: 0.6, blue: 0.7),   // Soft pink
-            Color(red: 0.7, green: 0.5, blue: 0.9),    // Lavender
-            Color(red: 0.5, green: 0.7, blue: 0.95),   // Sky blue
+            Color(red: 0.85, green: 0.85, blue: 0.88),   // Soft grey-blue
+            Color(red: 0.88, green: 0.85, blue: 0.90),   // Subtle lavender-grey
+            Color(red: 0.90, green: 0.90, blue: 0.92),   // Light silver
             
-            Color(red: 0.9, green: 0.7, blue: 0.5),    // Warm peach
-            Color(red: 0.85, green: 0.85, blue: 0.95), // Soft white-lavender center
-            Color(red: 0.5, green: 0.85, blue: 0.8),   // Teal accent
+            Color(red: 0.87, green: 0.88, blue: 0.92),   // Cool grey
+            Color(red: 0.92, green: 0.92, blue: 0.94),   // Bright center
+            Color(red: 0.88, green: 0.90, blue: 0.92),   // Steel blue-grey
             
-            Color(red: 0.95, green: 0.85, blue: 0.6),  // Warm gold
-            Color(red: 0.6, green: 0.7, blue: 0.95),   // Periwinkle
-            Color(red: 0.7, green: 0.9, blue: 0.85)    // Mint
+            Color(red: 0.90, green: 0.88, blue: 0.90),   // Warm grey-purple
+            Color(red: 0.88, green: 0.88, blue: 0.92),   // Neutral grey
+            Color(red: 0.92, green: 0.91, blue: 0.93)    // Soft white
         ]
     }
 }
@@ -611,6 +612,7 @@ struct GlassDivider: View {
 // MARK: - Glass Effect Card (Pedal Style)
 
 /// A glass effect card specifically designed for effect pedals
+/// Uses premium liquid glass with specular highlights
 struct GlassEffectPedal: View {
     let effect: EffectNode
     var isSelected: Bool = false
@@ -622,36 +624,76 @@ struct GlassEffectPedal: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // LED indicator
-            Circle()
-                .fill(effect.isEnabled ? Color.green : Color.red.opacity(0.4))
-                .frame(width: 8, height: 8)
-                .shadow(color: effect.isEnabled ? .green.opacity(0.8) : .clear, radius: 4)
+            // LED indicator with glow
+            ZStack {
+                Circle()
+                    .fill(effect.isEnabled ? Color.green.opacity(0.3) : .clear)
+                    .frame(width: 16, height: 16)
+                    .blur(radius: 4)
+
+                Circle()
+                    .fill(effect.isEnabled ? Color.green : Color.gray.opacity(0.4))
+                    .frame(width: 10, height: 10)
+                    .shadow(color: effect.isEnabled ? .green.opacity(0.8) : .clear, radius: 6)
+            }
 
             // Effect icon
             Image(systemName: effect.type.icon)
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 26, weight: .medium))
                 .foregroundStyle(effect.isEnabled ? effect.type.color : .secondary)
 
             // Effect name
             Text(effect.type.abbreviation)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 13, weight: .bold, design: .rounded))
                 .foregroundStyle(effect.isEnabled ? .primary : .secondary)
 
             Text(effect.type.rawValue)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .lineLimit(1)
         }
-        .frame(width: 80, height: 110)
-        .glassEffect(
-            .regular.tint(effect.isEnabled ? effect.type.color : .clear).interactive(),
-            in: RoundedRectangle(cornerRadius: 16)
-        )
+        .frame(width: 85, height: 115)
+        .background {
+            ZStack {
+                // Base glass layer
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+
+                // Tint layer when enabled
+                if effect.isEnabled {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(effect.type.color.opacity(0.15))
+                }
+
+                // Specular highlight (glossy look)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.4), .white.opacity(0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.overlay)
+
+                // Rim light
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.5), .white.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        }
+        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
         .overlay {
             if isSelected {
                 RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(effect.type.color, lineWidth: 2)
+                    .strokeBorder(effect.type.color, lineWidth: 2.5)
+                    .shadow(color: effect.type.color.opacity(0.5), radius: 8)
             }
         }
         .overlay {
@@ -662,8 +704,9 @@ struct GlassEffectPedal: View {
                         Spacer()
                         Button(action: onDelete) {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 16))
+                                .font(.system(size: 18))
                                 .foregroundStyle(.white, .red)
+                                .shadow(color: .black.opacity(0.3), radius: 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -672,6 +715,8 @@ struct GlassEffectPedal: View {
                 .padding(6)
             }
         }
+        .scaleEffect(isHovering ? 1.02 : 1.0)
+        .animation(.spring(duration: 0.2), value: isHovering)
         .onTapGesture(count: 2) { onDoubleTap() }
         .onTapGesture { onTap() }
         .onHover { isHovering = $0 }
@@ -717,6 +762,134 @@ extension View {
 // - .buttonStyle(.glass) - Standard glass button
 // - .buttonStyle(.glassProminent) - Prominent glass button
 // Use these directly instead of custom implementations
+
+// MARK: - Glass Segment Slider
+
+/// A liquid glass segmented slider control
+struct GlassSegmentSlider<T: Hashable & CaseIterable, Content: View>: View where T.AllCases: RandomAccessCollection {
+    @Binding var selection: T
+    let options: T.AllCases
+    @ViewBuilder let content: (T) -> Content
+
+    @Namespace private var sliderNamespace
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                Button {
+                    withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
+                        selection = option
+                    }
+                } label: {
+                    content(option)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                        .foregroundStyle(selection == option ? .white : .secondary)
+                }
+                .buttonStyle(.plain)
+                .background {
+                    if selection == option {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.riffPrimary)
+                            .matchedGeometryEffect(id: "slider", in: sliderNamespace)
+                            .shadow(color: Color.riffPrimary.opacity(0.4), radius: 8, x: 0, y: 2)
+                    }
+                }
+            }
+        }
+        .padding(4)
+        .background {
+            ZStack {
+                // Base glass
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+
+                // Specular highlight
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.3), .white.opacity(0)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.overlay)
+
+                // Rim light
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.5), .white.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        }
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+    }
+}
+
+// MARK: - Premium Liquid Glass Card
+
+/// A premium liquid glass card with specular highlights and rim lighting
+struct PremiumGlassCard<Content: View>: View {
+    let content: Content
+    var tint: Color?
+    var cornerRadius: CGFloat
+
+    init(
+        tint: Color? = nil,
+        cornerRadius: CGFloat = 20,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.content = content()
+        self.tint = tint
+        self.cornerRadius = cornerRadius
+    }
+
+    var body: some View {
+        content
+            .padding(Spacing.lg)
+            .background {
+                ZStack {
+                    // Base blur layer
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.ultraThinMaterial)
+
+                    // Tint layer (optional)
+                    if let tint = tint {
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .fill(tint.opacity(0.1))
+                    }
+
+                    // Specular highlight (glossy look)
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(
+                            LinearGradient(
+                                colors: [.white.opacity(0.4), .white.opacity(0)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .blendMode(.overlay)
+
+                    // Rim light (edge definition)
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.6), .white.opacity(0.1)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+            }
+            .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
+    }
+}
 
 // MARK: - Preview
 

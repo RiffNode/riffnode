@@ -142,6 +142,10 @@ struct GuidedTourView: View {
                 }
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
+                .padding(.vertical, Spacing.sm)
+                .padding(.horizontal, Spacing.lg)
+                .buttonStyle(.plain)
+                .glassEffect(.clear.interactive(), in: Capsule())
                 .padding(.bottom, Spacing.lg)
             }
         }
@@ -281,19 +285,19 @@ struct GlassProgressBar: View {
             HStack(spacing: 0) {
                 ForEach(0..<steps, id: \.self) { step in
                     Circle()
-                        .fill(step <= currentStep ? Color.riffPrimary : Color.primary.opacity(0.2))
+                        .fill(step <= currentStep ? Color.black : Color.white.opacity(0.3))
                         .frame(width: 10, height: 10)
                         .overlay {
                             if step == currentStep {
                                 Circle()
-                                    .stroke(Color.riffPrimary, lineWidth: 2)
+                                    .stroke(Color.black, lineWidth: 2)
                                     .frame(width: 18, height: 18)
                             }
                         }
 
                     if step < steps - 1 {
                         Rectangle()
-                            .fill(step < currentStep ? Color.riffPrimary : Color.primary.opacity(0.15))
+                            .fill(step < currentStep ? Color.black : Color.white.opacity(0.2))
                             .frame(height: 2)
                     }
                 }
@@ -425,20 +429,21 @@ struct GlassTourNavigation: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
                         Text("Back")
-                            .font(.headline)
+                            .font(.headline.weight(.semibold))
                     }
                     .foregroundStyle(.primary)
                     .frame(minWidth: 80)
                     .padding(.vertical, Spacing.md)
                     .padding(.horizontal, Spacing.lg)
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: Capsule())
             }
 
             Button(action: onNext) {
                 HStack(spacing: Spacing.xs) {
                     Text(actionLabel)
-                        .font(.headline)
+                        .font(.headline.weight(.semibold))
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
                 }
@@ -447,7 +452,8 @@ struct GlassTourNavigation: View {
                 .padding(.vertical, Spacing.md)
                 .padding(.horizontal, Spacing.lg)
             }
-            .buttonStyle(.glassProminent)
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: Capsule())
         }
     }
 }

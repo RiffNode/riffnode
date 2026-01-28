@@ -20,7 +20,7 @@ struct ParametricEQView: View {
             )
 
             // Main EQ Display with glass styling
-            GlassCard(tint: .green, cornerRadius: 16, padding: 0) {
+            GlassCard(cornerRadius: 16, padding: 0) {
                 ZStack {
                     // Subtle gradient background
                     LinearGradient(
@@ -31,12 +31,6 @@ struct ParametricEQView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-
-                    // Spectrum analyzer background (if active)
-                    if isAnalyzerActive {
-                        SpectrumAnalyzerView()
-                            .opacity(0.3)
-                    }
 
                     // Grid
                     GlassEQGridView()
@@ -82,7 +76,7 @@ struct GlassEQHeader: View {
             // EQ Icon and title
             HStack(spacing: 10) {
                 Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.primary)
                 Text("Parametric EQ")
                     .font(.headline)
             }
@@ -112,12 +106,12 @@ struct GlassEQHeader: View {
                 } label: {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(isAnalyzerActive ? Color.green : Color.secondary)
+                            .fill(isAnalyzerActive ? Color.primary : Color.secondary)
                             .frame(width: 6, height: 6)
                         Text("Analyzer")
                     }
                 }
-                .buttonStyle(GlassPillStyle(isSelected: isAnalyzerActive, tint: .green))
+                .buttonStyle(GlassPillStyle(isSelected: isAnalyzerActive, tint: .primary))
 
                 // Reset button
                 Button("Reset", action: onReset)
@@ -158,7 +152,7 @@ struct GlassEQPresetPicker: View {
                             HStack(spacing: 8) {
                                 Image(systemName: preset.icon)
                                     .font(.system(size: 14))
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(.primary)
                                     .frame(width: 24)
 
                                 Text(preset.name)
@@ -332,8 +326,8 @@ struct GlassEQCurveView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.green.opacity(0.3),
-                        Color.green.opacity(0.05)
+                        Color.white.opacity(0.25),
+                        Color.white.opacity(0.05)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
@@ -358,7 +352,7 @@ struct GlassEQCurveView: View {
             }
             .stroke(
                 LinearGradient(
-                    colors: [.green.opacity(0.8), .green],
+                    colors: [.white.opacity(0.8), .cyan],
                     startPoint: .leading,
                     endPoint: .trailing
                 ),
@@ -615,7 +609,7 @@ struct GlassEQBandControls: View {
     @Binding var band: EQBand
 
     var body: some View {
-        GlassCard(tint: band.type.color, cornerRadius: 12) {
+        GlassCard(cornerRadius: 12) {
             VStack(spacing: 12) {
                 // Type selector
                 HStack(spacing: 6) {
@@ -650,7 +644,7 @@ struct GlassEQBandControls: View {
 
                         Text(formatFrequency(band.frequency))
                             .font(.system(size: 16, weight: .bold).monospacedDigit())
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.primary)
                     }
                     .frame(width: 70)
 
@@ -672,7 +666,7 @@ struct GlassEQBandControls: View {
 
                             Text(String(format: "%+.1f", band.gain))
                                 .font(.system(size: 16, weight: .bold).monospacedDigit())
-                                .foregroundStyle(band.gain >= 0 ? .green : .orange)
+                                .foregroundStyle(.primary)
                                 .frame(width: 50)
 
                             Button {
@@ -704,7 +698,7 @@ struct GlassEQBandControls: View {
 
                             Text(String(format: "%.1f", band.q))
                                 .font(.system(size: 16, weight: .bold).monospacedDigit())
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(.primary)
                                 .frame(width: 36)
 
                             Button {

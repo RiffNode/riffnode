@@ -136,18 +136,13 @@ struct GlassTrackInfoView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Album art placeholder / waveform indicator
+            // Album art placeholder / waveform indicator - native iOS 26 glass
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.clear) // Native glass applied via .glassEffect()
-                    .frame(width: 64, height: 64)
-
                 if isLoading {
                     ProgressView()
                         .controlSize(.regular)
                         .tint(.primary)
                 } else if trackName != nil {
-                    // Mini waveform animation when playing
                     MiniWaveformView(isPlaying: isPlaying)
                 } else {
                     Image(systemName: "waveform")
@@ -155,6 +150,7 @@ struct GlassTrackInfoView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .frame(width: 64, height: 64)
             .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
 
             // Track info
@@ -265,7 +261,7 @@ struct GlassTransportControls: View {
                 .glassEffect(.regular.interactive(), in: Circle())
                 .disabled(!hasTrack || !isPlaying)
 
-                // Play/Pause button (larger)
+                // Play/Pause button - native iOS 26 glass with tint
                 Button {
                     if isPlaying { onStop() } else { onPlay() }
                 } label: {
@@ -281,18 +277,11 @@ struct GlassTransportControls: View {
                         }
                     }
                     .frame(width: 52, height: 52)
-                    .background {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: hasTrack ? [Color.riffPrimary, Color.riffPrimary.opacity(0.8)] : [.gray, .gray.opacity(0.8)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                    }
                 }
-                .glassEffect(.clear.interactive(), in: Circle())
+                .glassEffect(
+                    hasTrack ? .regular.tint(Color.riffPrimary).interactive() : .regular.interactive(),
+                    in: Circle()
+                )
                 .glassEffectID("playButton", in: transportNamespace)
                 .disabled(!hasTrack)
             }

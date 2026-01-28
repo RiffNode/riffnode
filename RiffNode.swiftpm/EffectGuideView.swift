@@ -49,7 +49,7 @@ struct EffectGuideView: View {
                     HStack {
                         HStack(spacing: 8) {
                             Image(systemName: "square.grid.2x2.fill")
-                                .foregroundStyle(.cyan)
+                                .foregroundStyle(.primary)
                             Text("Effect Categories")
                                 .font(.headline)
                         }
@@ -95,12 +95,12 @@ struct EffectGuideView: View {
 
 struct GlassGuideHeader: View {
     var body: some View {
-        GlassCard(tint: .yellow, cornerRadius: 16) {
+        GlassCard(cornerRadius: 16) {
             VStack(spacing: 8) {
                 HStack {
                     HStack(spacing: 8) {
                         Image(systemName: "book.fill")
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(.primary)
                         Text("Learn")
                             .font(.headline)
                     }
@@ -163,13 +163,13 @@ struct GlassSoundScienceView: View {
     }
 
     var body: some View {
-        GlassCard(tint: .yellow, cornerRadius: 16) {
+        GlassCard(cornerRadius: 16) {
             VStack(spacing: 16) {
                 // Header
                 HStack {
                     HStack(spacing: 8) {
                         Image(systemName: "waveform.badge.magnifyingglass")
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(.primary)
                         Text("Science of Sound")
                             .font(.headline)
                     }
@@ -383,12 +383,12 @@ struct GlassCategoryDescriptionView: View {
     let category: any EffectCategoryProviding
 
     var body: some View {
-        GlassCard(tint: category.color, cornerRadius: 12, padding: 12) {
+        GlassCard(cornerRadius: 12, padding: 12) {
             VStack(spacing: 12) {
                 HStack(spacing: 12) {
                     Image(systemName: category.icon)
                         .font(.title2)
-                        .foregroundStyle(category.color)
+                        .foregroundStyle(.primary)
 
                     Text(category.description)
                         .font(.subheadline)
@@ -597,7 +597,7 @@ struct GlassEffectCardView: View {
     @Namespace private var cardNamespace
 
     var body: some View {
-        GlassCard(tint: isExpanded ? effect.color : nil, cornerRadius: 12, padding: 0) {
+        GlassCard(cornerRadius: 12, padding: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 // Header
                 Button(action: onTap) {

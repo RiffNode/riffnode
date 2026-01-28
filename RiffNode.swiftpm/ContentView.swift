@@ -82,22 +82,25 @@ struct WelcomeView: View {
             
             // Hero section with large glass logo
             VStack(spacing: Spacing.xl) {
-                // Large glass app icon
+                // Large glass app icon with custom RiffNode logo - native iOS 26 glass
                 ZStack {
                     // Outer glow
                     Circle()
-                        .fill(.white.opacity(0.3))
-                        .frame(width: 160, height: 160)
-                        .blur(radius: 30)
-                    
-                    // Glass circle with icon
+                        .fill(Color.riffPrimary.opacity(0.25))
+                        .frame(width: 180, height: 180)
+                        .blur(radius: 40)
+
+                    // Glass circle - native iOS 26 liquid glass
                     Circle()
                         .glassEffect(.regular.interactive(), in: Circle())
-                        .frame(width: 140, height: 140)
-                    
-                    Image(systemName: "guitars.fill")
-                        .font(.system(size: 60, weight: .medium))
-                        .foregroundStyle(.primary)
+                        .frame(width: 150, height: 150)
+
+                    Image("RiffNodeLogo")
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 80, height: 80)
+                        .foregroundStyle(Color.riffPrimary)
                 }
                 .scaleEffect(showContent ? 1 : 0.8)
                 .opacity(showContent ? 1 : 0)
@@ -159,13 +162,15 @@ struct WelcomeView: View {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 18, weight: .semibold))
                             Text("Take the Tour")
-                                .font(.headline)
+                                .font(.headline.weight(.semibold))
                         }
                         .foregroundStyle(.primary)
                         .frame(maxWidth: 280)
                         .padding(.vertical, Spacing.md)
+                        .padding(.horizontal, Spacing.lg)
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Capsule())
                     
                     Button {
                         onSkipToMain()
@@ -173,8 +178,11 @@ struct WelcomeView: View {
                         Text("Skip")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
+                            .padding(.vertical, Spacing.sm)
+                            .padding(.horizontal, Spacing.lg)
                     }
                     .buttonStyle(.plain)
+                    .glassEffect(.clear.interactive(), in: Capsule())
                 } else {
                     Button {
                         Task {
@@ -191,13 +199,16 @@ struct WelcomeView: View {
                                 ProgressView()
                                     .controlSize(.small)
                             }
-                            Text(viewModel?.buttonTitle ?? "Continue")
-                                .font(.headline)
+                            Text(viewModel?.buttonTitle ?? "Get Started")
+                                .font(.headline.weight(.semibold))
                         }
+                        .foregroundStyle(.primary)
                         .frame(maxWidth: 280)
                         .padding(.vertical, Spacing.md)
+                        .padding(.horizontal, Spacing.lg)
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: Capsule())
                     .disabled(viewModel?.isLoading == true)
                 }
             }
@@ -337,33 +348,39 @@ struct MainInterfaceView: View {
             .padding(.horizontal, Spacing.md)
             .padding(.top, Spacing.sm)
 
-            HStack(spacing: 0) {
-                // Left panel
-                VStack(spacing: Spacing.md) {
-                    AudioVisualizationPanel(engine: engine)
+            HStack(spacing: Spacing.md) {
+                // Left panel - wrapped in glass container
+                GlassEffectContainer(spacing: Spacing.md) {
+                    VStack(spacing: Spacing.md) {
+                        AudioVisualizationPanel(engine: engine)
 
-                    // Compact chord display
-                    CompactChordBadge(detector: chordDetector)
+                        // Compact chord display
+                        CompactChordBadge(detector: chordDetector)
 
-                    BackingTrackView(engine: engine)
+                        BackingTrackView(engine: engine)
+                    }
                 }
-                .padding()
+                .padding(Spacing.md)
                 .frame(width: 380)
-
-                GlassDivider(vertical: true)
-                    .padding(.vertical, Spacing.md)
 
                 // Right panel with tab switching
                 VStack(spacing: 0) {
-                    // Glass tab selector
-                    HStack {
+                    // Glass tab selector with improved styling
+                    HStack(spacing: Spacing.md) {
                         GlassTabBar(selection: $selectedTab, tint: Color.riffPrimary) { tab in
                             tab.icon
                         }
+
                         Spacer()
+
+                        // Active tab indicator
+                        Text(selectedTab.rawValue)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.secondary)
                     }
-                    .padding(.horizontal, Spacing.md)
+                    .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.md)
+                    .padding(.bottom, Spacing.sm)
 
                     // Content based on selected tab
                     Group {
@@ -386,10 +403,12 @@ struct MainInterfaceView: View {
                             EffectGuideView()
                         }
                     }
-                    .transition(.opacity)
+                    .animation(.smooth(duration: 0.25), value: selectedTab)
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.trailing, Spacing.md)
             }
+            .padding(.top, Spacing.sm)
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView(engine: engine)
@@ -463,62 +482,68 @@ struct AIToolsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Header
+            VStack(spacing: Spacing.lg) {
+                // Header with glass pill
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("AI-Powered Tools")
-                            .font(.title2.bold())
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.title2)
+                                .foregroundStyle(Color.riffPrimary)
+
+                            Text("AI-Powered Tools")
+                                .font(.title2.bold())
+                        }
 
                         Text("Machine Learning & Computer Vision for Musicians")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Spacing.lg)
 
                 // Spectrum Analyzer (FFT)
-                GlassCard(tint: Color.riffDynamics, cornerRadius: 16) {
-                    VStack(alignment: .leading, spacing: 12) {
+                GlassCard(cornerRadius: CornerRadius.lg) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         Label("Real-Time Spectrum Analysis", systemImage: "waveform.path.ecg")
                             .font(.headline)
-                            .foregroundStyle(Color.riffDynamics)
+                            .foregroundStyle(.primary)
 
                         Text("Fast Fourier Transform (FFT) decomposes your audio into frequency components")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
 
                         FFTSpectrumView(analyzer: fftAnalyzer)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Spacing.lg)
 
                 // Chord Detection
-                GlassCard(tint: Color.riffFilter, cornerRadius: 16) {
-                    VStack(alignment: .leading, spacing: 12) {
+                GlassCard(cornerRadius: CornerRadius.lg) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         Label("AI Chord Detection", systemImage: "pianokeys")
                             .font(.headline)
-                            .foregroundStyle(Color.riffFilter)
+                            .foregroundStyle(.primary)
 
                         Text("Pitch detection using autocorrelation algorithm identifies notes and chords")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
 
                         ChordDetectorView(detector: chordDetector)
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Spacing.lg)
 
                 // Vision Gesture Control
-                GlassCard(tint: Color.riffAmbience, cornerRadius: 16) {
-                    VStack(alignment: .leading, spacing: 12) {
+                GlassCard(cornerRadius: CornerRadius.lg) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         Label("Hands-Free Gesture Control", systemImage: "hand.raised.fill")
                             .font(.headline)
-                            .foregroundStyle(Color.riffAmbience)
+                            .foregroundStyle(.primary)
 
                         Text("Computer Vision detects head movements - control effects while playing!")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
 
                         VisionGestureControlView(controller: gestureController) { gesture in
@@ -526,13 +551,13 @@ struct AIToolsView: View {
                         }
                     }
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, Spacing.lg)
 
                 // Educational note
                 TechExplanationCard()
-                    .padding(.horizontal)
+                    .padding(.horizontal, Spacing.lg)
             }
-            .padding(.vertical)
+            .padding(.vertical, Spacing.md)
         }
     }
 }
@@ -541,13 +566,13 @@ struct AIToolsView: View {
 
 struct TechExplanationCard: View {
     var body: some View {
-        GlassCard(tint: .green, cornerRadius: 16) {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("The Science Behind", systemImage: "brain")
+        GlassCard(tint: Color.riffPrimary.opacity(0.3), cornerRadius: CornerRadius.lg) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Label("The Science Behind", systemImage: "sparkles")
                     .font(.headline)
-                    .foregroundStyle(.green)
+                    .foregroundStyle(Color.riffPrimary)
 
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     TechBullet(
                         framework: "Accelerate (vDSP)",
                         description: "Apple's high-performance math library for FFT calculations"
@@ -578,18 +603,18 @@ struct TechBullet: View {
     let description: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.system(size: 12))
+                .foregroundStyle(Color.riffPrimary)
+                .font(.system(size: 14))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(framework)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
                     .foregroundStyle(.primary)
 
                 Text(description)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
         }
@@ -613,18 +638,18 @@ struct GlassTopBarView: View {
 
     var body: some View {
         HStack(spacing: 16) {
-            // Logo
-            HStack(spacing: 10) {
-                Image(systemName: "guitars.fill")
-                    .font(.title2)
-                    .foregroundStyle(.linearGradient(
-                        colors: [.cyan, .blue],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ))
+            // Logo with custom RiffNode icon - larger size
+            HStack(spacing: 12) {
+                Image("RiffNodeLogo")
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 42, height: 42)
+                    .foregroundStyle(Color.riffPrimary)
 
                 Text("RiffNode")
-                    .font(.title2.bold())
+                    .font(.title.bold())
+                    .foregroundStyle(.primary)
             }
 
             Spacer()
