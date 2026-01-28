@@ -782,13 +782,10 @@ struct PremiumGlassCard<Content: View>: View {
                     )
                 }
 
-                // Slider
-                GlassSlider(
-                    value: .constant(0.7),
-                    tint: .green,
-                    label: "Volume"
-                )
-                .padding(.horizontal)
+                // Native iOS 26 Slider
+                Slider(value: .constant(0.7), in: 0...1)
+                    .tint(.green)
+                    .padding(.horizontal)
             }
             .padding()
         }
