@@ -100,8 +100,8 @@ graph TD
     
     V --> VM
     VM --> P
-    AE ..|> P
-    VS ..|> P
+    AE -.-> P
+    VS -.-> P
     AE --> M
     VS --> M
 ```
