@@ -6,7 +6,6 @@ import SwiftUI
 struct EffectsChainView: View {
     @Bindable var engine: AudioEngineManager
     @State private var selectedEffect: EffectNode?
-    @Namespace private var pedalboardNamespace
 
     var body: some View {
         VStack(spacing: 16) {
@@ -42,16 +41,21 @@ struct EffectsChainView: View {
                         Text("Add Pedal")
                     }
                     .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .contentShape(Capsule())
+                    .glassEffect(.regular, in: Capsule())
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
+                .clipShape(Capsule())
             }
             .padding(.horizontal)
 
             // Signal chain visualization
             GlassSignalChainView(
                 engine: engine,
-                selectedEffect: $selectedEffect,
-                namespace: pedalboardNamespace
+                selectedEffect: $selectedEffect
             )
 
             // Parameter controls for selected effect
@@ -73,7 +77,6 @@ struct EffectsChainView: View {
 struct GlassSignalChainView: View {
     @Bindable var engine: AudioEngineManager
     @Binding var selectedEffect: EffectNode?
-    var namespace: Namespace.ID
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -110,7 +113,6 @@ struct GlassSignalChainView: View {
             onDoubleTap: { engine.toggleEffect(effect) },
             onDelete: { handleDelete(effect: effect, index: index) }
         )
-        .glassEffectID(effect.id, in: namespace)
         .draggable(effect.id.uuidString) {
             dragPreview(for: effect)
         }
@@ -172,10 +174,10 @@ struct GlassJackView: View {
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
-                // Jack housing with native iOS 26 glass effect
-                RoundedRectangle(cornerRadius: 8)
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
+                // Jack housing with Liquid Glass effect
+                Color.clear
                     .frame(width: 44, height: 54)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
 
                 // Jack hole
                 Circle()

@@ -121,8 +121,13 @@ struct GlassMediaPlayerHeader: View {
                     Image(systemName: hasTrack ? "arrow.triangle.2.circlepath" : "plus")
                     Text(hasTrack ? "Change" : "Import")
                 }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .glassEffect(.regular, in: Capsule())
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.plain)
         }
     }
 }
@@ -247,46 +252,47 @@ struct GlassTransportControls: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Centered transport buttons
-            HStack(spacing: 16) {
-                // Stop button
-                Button {
-                    onStop()
-                } label: {
-                    Image(systemName: "stop.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(hasTrack && isPlaying ? .primary : .secondary)
-                        .frame(width: 48, height: 48)
-                }
-                .glassEffect(.regular.interactive(), in: Circle())
-                .disabled(!hasTrack || !isPlaying)
-
-                // Play/Pause button - native iOS 26 glass with tint
-                Button {
-                    if isPlaying { onStop() } else { onPlay() }
-                } label: {
-                    ZStack {
-                        if isLoading {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(.white)
-                        } else {
-                            Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundStyle(.white)
-                        }
+            // Centered transport buttons - wrapped for liquid fusion effect
+            GlassEffectContainer(spacing: 16) {
+                HStack(spacing: 16) {
+                    // Stop button
+                    Button {
+                        onStop()
+                    } label: {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(hasTrack && isPlaying ? .primary : .secondary)
+                            .frame(width: 48, height: 48)
                     }
-                    .frame(width: 56, height: 56)
+                    .glassEffect(.regular, in: Circle())
+                    .disabled(!hasTrack || !isPlaying)
+
+                    // Play/Pause button - full Liquid Glass with tint
+                    Button {
+                        if isPlaying { onStop() } else { onPlay() }
+                    } label: {
+                        ZStack {
+                            if isLoading {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 22, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .frame(width: 56, height: 56)
+                    }
+                    .glassEffect(
+                        hasTrack ? .regular.tint(Color.riffPrimary) : .regular,
+                        in: Circle()
+                    )
+                    .disabled(!hasTrack)
                 }
-                .glassEffect(
-                    hasTrack ? .regular.tint(Color.riffPrimary).interactive() : .regular.interactive(),
-                    in: Circle()
-                )
-                .glassEffectID("playButton", in: transportNamespace)
-                .disabled(!hasTrack)
             }
 
-            // Volume slider - native iOS Liquid Glass
+            // Volume slider - full Liquid Glass
             HStack(spacing: 10) {
                 Image(systemName: "speaker.fill")
                     .font(.system(size: 12))

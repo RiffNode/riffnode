@@ -112,10 +112,7 @@ struct GuidedTourView: View {
                     }
                     .padding(Spacing.xl)
                     .frame(maxWidth: 500)
-                    .background {
-                        RoundedRectangle(cornerRadius: CornerRadius.xl)
-                            .fill(.ultraThinMaterial)
-                    }
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: CornerRadius.xl))
                     .padding(.horizontal, Spacing.lg)
                 }
                 .id(currentStep)
@@ -136,16 +133,16 @@ struct GuidedTourView: View {
                 )
                 .padding(.bottom, Spacing.xl)
 
-                // Skip option - frosted glass button
+                // Skip option - consistent glass style
                 Button {
                     onComplete()
                 } label: {
                     Text("Skip Tour")
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 20)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .foregroundStyle(Color.black.opacity(0.6))
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 24)
+                        .glassEffect(.regular, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .padding(.bottom, Spacing.lg)
@@ -284,27 +281,29 @@ struct GlassProgressBar: View {
     var body: some View {
         VStack(spacing: Spacing.sm) {
             // Step indicators
-            HStack(spacing: 0) {
-                ForEach(0..<steps, id: \.self) { step in
-                    Circle()
-                        .fill(step <= currentStep ? Color.black : Color.white.opacity(0.3))
-                        .frame(width: 10, height: 10)
-                        .overlay {
-                            if step == currentStep {
-                                Circle()
-                                    .stroke(Color.black, lineWidth: 2)
-                                    .frame(width: 18, height: 18)
+            GlassEffectContainer {
+                HStack(spacing: 0) {
+                    ForEach(0..<steps, id: \.self) { step in
+                        Circle()
+                            .fill(step <= currentStep ? Color.black : Color.white.opacity(0.3))
+                            .frame(width: 10, height: 10)
+                            .overlay {
+                                if step == currentStep {
+                                    Circle()
+                                        .stroke(Color.black, lineWidth: 2)
+                                        .frame(width: 18, height: 18)
+                                }
                             }
-                        }
 
-                    if step < steps - 1 {
-                        Rectangle()
-                            .fill(step < currentStep ? Color.black : Color.white.opacity(0.2))
-                            .frame(height: 2)
+                        if step < steps - 1 {
+                            Rectangle()
+                                .fill(step < currentStep ? Color.black : Color.white.opacity(0.2))
+                                .frame(height: 2)
+                        }
                     }
                 }
+                .glassEffect(.regular, in: Capsule())
             }
-            .glassEffect(.clear, in: Capsule())
 
             // Step counter
             Text("Step \(currentStep + 1) of \(steps)")
@@ -319,48 +318,60 @@ struct GlassProgressBar: View {
 struct GlassEffectDemoView: View {
     let effectType: EffectType
     let isActive: Bool
-    @Namespace private var demoNamespace
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             // Visual representation of the effect
             ZStack {
-                // Background glow
+                // Background glow - more vibrant
                 Circle()
-                    .fill(effectType.color.opacity(isActive ? 0.3 : 0.1))
-                    .frame(width: 120, height: 120)
-                    .blur(radius: isActive ? 20 : 10)
+                    .fill(
+                        RadialGradient(
+                            colors: [effectType.color.opacity(isActive ? 0.4 : 0.15), .clear],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 160, height: 160)
+                    .blur(radius: 20)
 
-                // Glass effect pedal
-                VStack(spacing: 8) {
-                    // LED indicator
-                    Circle()
-                        .fill(isActive ? Color.green : Color.red.opacity(0.5))
-                        .frame(width: 10, height: 10)
-                        .shadow(color: isActive ? .green : .clear, radius: 6)
+                // Glass effect pedal - cleaner look
+                VStack(spacing: 10) {
+                    // LED indicator with better contrast
+                    ZStack {
+                        Circle()
+                            .fill(isActive ? Color.green.opacity(0.3) : Color.clear)
+                            .frame(width: 18, height: 18)
+                            .blur(radius: 4)
 
-                    // Effect abbreviation
+                        Circle()
+                            .fill(isActive ? Color.green : Color.gray.opacity(0.4))
+                            .frame(width: 10, height: 10)
+                    }
+
+                    // Effect abbreviation - bold and clear
                     Text(effectType.abbreviation)
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(isActive ? effectType.color : .primary)
 
                     // Effect name
                     Text(effectType.rawValue)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.secondary)
                 }
-                .frame(width: 80, height: 100)
+                .frame(width: 90, height: 110)
                 .glassEffect(
                     isActive ? .regular.tint(effectType.color) : .regular,
-                    in: RoundedRectangle(cornerRadius: 12)
+                    in: RoundedRectangle(cornerRadius: 16)
                 )
-                .glassEffectID("demoPedal", in: demoNamespace)
-                .shadow(color: isActive ? effectType.color.opacity(0.5) : .clear, radius: 10)
+                .shadow(color: isActive ? effectType.color.opacity(0.4) : .black.opacity(0.1), radius: isActive ? 12 : 6)
             }
 
-            // Waveform visualization
+            // Waveform visualization - cleaner
             GlassWaveformDemo(isActive: isActive, color: effectType.color)
-                .frame(height: 40)
-                .padding(.horizontal, 40)
+                .frame(height: 50)
+                .padding(.horizontal, 30)
         }
     }
 }
@@ -373,8 +384,9 @@ struct GlassWaveformDemo: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 8)
-                .fill(.black.opacity(0.2))
+            // Clean background
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.black.opacity(0.05))
 
             TimelineView(.animation) { timeline in
                 Canvas { context, size in
@@ -388,7 +400,7 @@ struct GlassWaveformDemo: View {
 
                     for x in stride(from: 0, through: size.width, by: 2) {
                         let relativeX = Double(x / size.width)
-                        let amplitude = isActive ? Double(size.height) * 0.35 : Double(size.height) * 0.1
+                        let amplitude = isActive ? Double(size.height) * 0.35 : Double(size.height) * 0.08
 
                         let wave1 = sin(relativeX * Double.pi * 4 + animatedPhase)
                         let wave2 = isActive ? sin(relativeX * Double.pi * 8 + animatedPhase * 1.5) * 0.3 : 0
@@ -397,20 +409,37 @@ struct GlassWaveformDemo: View {
                         path.addLine(to: CGPoint(x: x, y: y))
                     }
 
+                    // Draw filled area under wave
+                    var fillPath = path
+                    fillPath.addLine(to: CGPoint(x: size.width, y: midY))
+                    fillPath.addLine(to: CGPoint(x: size.width, y: size.height))
+                    fillPath.addLine(to: CGPoint(x: 0, y: size.height))
+                    fillPath.closeSubpath()
+
+                    context.fill(
+                        fillPath,
+                        with: .linearGradient(
+                            Gradient(colors: [color.opacity(isActive ? 0.3 : 0.1), color.opacity(0)]),
+                            startPoint: CGPoint(x: 0, y: 0),
+                            endPoint: CGPoint(x: 0, y: size.height)
+                        )
+                    )
+
+                    // Stroke the wave line
                     context.stroke(
                         path,
                         with: .linearGradient(
-                            Gradient(colors: [color.opacity(0.8), color]),
+                            Gradient(colors: [color.opacity(0.9), color]),
                             startPoint: .zero,
                             endPoint: CGPoint(x: size.width, y: 0)
                         ),
-                        lineWidth: 2
+                        lineWidth: isActive ? 2.5 : 1.5
                     )
                 }
             }
-            .padding(4)
+            .padding(8)
         }
-        .glassEffect(.clear, in: RoundedRectangle(cornerRadius: 8))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -424,34 +453,38 @@ struct GlassTourNavigation: View {
     var namespace: Namespace.ID
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
-            if currentStep > 0 {
-                Button(action: onBack) {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: "chevron.left")
-                        Text("Back")
-                            .font(.headline.weight(.semibold))
+        GlassEffectContainer(spacing: 16) {
+            HStack(spacing: 16) {
+                if currentStep > 0 {
+                    Button(action: onBack) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                                .font(.headline.weight(.semibold))
+                        }
+                        .foregroundStyle(Color.black)
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 24)
+                        .glassEffect(.regular, in: Capsule())
                     }
-                    .foregroundStyle(.primary)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 20)
-                    .background(.ultraThinMaterial, in: Capsule())
+                    .buttonStyle(.plain)
+                    .glassEffectID("back_btn", in: namespace)
+                }
+
+                Button(action: onNext) {
+                    HStack(spacing: Spacing.xs) {
+                        Text(actionLabel)
+                            .font(.headline.weight(.semibold))
+                        Image(systemName: "chevron.right")
+                    }
+                    .foregroundStyle(Color.black)
+                    .padding(.vertical, 14)
+                    .padding(.horizontal, 24)
+                    .glassEffect(.regular, in: Capsule())
                 }
                 .buttonStyle(.plain)
+                .glassEffectID("next_btn", in: namespace)
             }
-
-            Button(action: onNext) {
-                HStack(spacing: Spacing.xs) {
-                    Text(actionLabel)
-                        .font(.headline.weight(.semibold))
-                    Image(systemName: "chevron.right")
-                }
-                .foregroundStyle(.primary)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 24)
-                .background(.ultraThinMaterial, in: Capsule())
-            }
-            .buttonStyle(.plain)
         }
     }
 }

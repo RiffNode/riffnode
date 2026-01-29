@@ -191,7 +191,7 @@ struct LevelMeterView: View {
             }
             .frame(width: 14) // Thinner, more elegant
             .clipShape(RoundedRectangle(cornerRadius: 4))
-            .glassEffect(.clear, in: RoundedRectangle(cornerRadius: 4))
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 4))
             
             // dB label
             Text(String(format: "%.0f", 20 * log10(max(level, 0.001))))

@@ -2,7 +2,11 @@ import SwiftUI
 
 // MARK: - RiffNode Design System
 // Apple iOS 26+ Human Interface Guidelines Compliant
-// Premium, refined aesthetics with native Liquid Glass
+// Uses native Liquid Glass API with full optical properties:
+// - .glassEffect(.regular, in: Shape()) - Standard glass effect
+// - .glassEffect(.regular.tint(color), in: Shape()) - Tinted glass
+// - .glassEffect(.regular.interactive(), in: Shape()) - Interactive glass elements
+// - GlassEffectContainer - Liquid fusion effect when glass elements are near each other
 
 // MARK: - Design Tokens
 
@@ -93,50 +97,57 @@ enum Typography {
 
 // MARK: - Adaptive Background
 
-/// Creates a dynamic background with floating color orbs for iOS 26 Liquid Glass
-/// Animated blurry circles that move organically behind the content
+/// Creates a vibrant dynamic background for iOS 26 Liquid Glass testing
+/// High-contrast animated orbs to showcase glass lensing and refraction
 struct AdaptiveBackground: View {
     @Environment(\.colorScheme) private var colorScheme
-    @State private var phase: CGFloat = 0
-    
+
     var body: some View {
         ZStack {
-            // Base color
-            (colorScheme == .dark ? Color.black : Color.white)
-            
-            // Animated floating orbs
+            // Vibrant gradient base
+            LinearGradient(
+                colors: colorScheme == .dark
+                    ? [Color(red: 0.1, green: 0.05, blue: 0.2), Color(red: 0.05, green: 0.1, blue: 0.15)]
+                    : [Color(red: 0.95, green: 0.9, blue: 1.0), Color(red: 0.9, green: 0.95, blue: 1.0)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            // Animated floating orbs - more vibrant for glass testing
             TimelineView(.animation(minimumInterval: 0.03)) { timeline in
                 let time = timeline.date.timeIntervalSinceReferenceDate
-                
+
                 Canvas { context, size in
-                    // Draw multiple animated color orbs
+                    // More vibrant orbs to see lensing effect
                     let orbs: [(color: Color, baseX: CGFloat, baseY: CGFloat, radius: CGFloat, speedX: Double, speedY: Double)] = colorScheme == .dark ? [
-                        (.purple.opacity(0.4), 0.2, 0.3, 200, 0.3, 0.2),
-                        (.blue.opacity(0.35), 0.8, 0.2, 180, 0.2, 0.35),
-                        (.cyan.opacity(0.3), 0.5, 0.7, 220, 0.25, 0.15),
-                        (.pink.opacity(0.25), 0.3, 0.8, 160, 0.35, 0.25),
-                        (.indigo.opacity(0.3), 0.7, 0.5, 190, 0.15, 0.3)
+                        (.purple.opacity(0.7), 0.2, 0.3, 250, 0.3, 0.2),
+                        (.blue.opacity(0.6), 0.8, 0.2, 220, 0.2, 0.35),
+                        (.cyan.opacity(0.65), 0.5, 0.7, 280, 0.25, 0.15),
+                        (.pink.opacity(0.55), 0.3, 0.8, 200, 0.35, 0.25),
+                        (.orange.opacity(0.5), 0.7, 0.5, 240, 0.15, 0.3),
+                        (.green.opacity(0.4), 0.1, 0.6, 180, 0.28, 0.22)
                     ] : [
-                        (.purple.opacity(0.2), 0.2, 0.3, 200, 0.3, 0.2),
-                        (.blue.opacity(0.15), 0.8, 0.2, 180, 0.2, 0.35),
-                        (.cyan.opacity(0.15), 0.5, 0.7, 220, 0.25, 0.15),
-                        (.pink.opacity(0.12), 0.3, 0.8, 160, 0.35, 0.25),
-                        (.mint.opacity(0.15), 0.7, 0.5, 190, 0.15, 0.3)
+                        (.purple.opacity(0.4), 0.2, 0.3, 250, 0.3, 0.2),
+                        (.blue.opacity(0.35), 0.8, 0.2, 220, 0.2, 0.35),
+                        (.cyan.opacity(0.3), 0.5, 0.7, 280, 0.25, 0.15),
+                        (.pink.opacity(0.35), 0.3, 0.8, 200, 0.35, 0.25),
+                        (.orange.opacity(0.25), 0.7, 0.5, 240, 0.15, 0.3),
+                        (.mint.opacity(0.3), 0.1, 0.6, 180, 0.28, 0.22)
                     ]
-                    
+
                     for orb in orbs {
                         // Calculate animated position
-                        let x = orb.baseX * size.width + sin(time * orb.speedX) * 80
-                        let y = orb.baseY * size.height + cos(time * orb.speedY) * 60
-                        
+                        let x = orb.baseX * size.width + sin(time * orb.speedX) * 100
+                        let y = orb.baseY * size.height + cos(time * orb.speedY) * 80
+
                         // Create radial gradient for soft glow effect
                         let center = CGPoint(x: x, y: y)
                         let gradient = Gradient(stops: [
                             .init(color: orb.color, location: 0),
-                            .init(color: orb.color.opacity(0.5), location: 0.3),
+                            .init(color: orb.color.opacity(0.6), location: 0.4),
                             .init(color: orb.color.opacity(0), location: 1)
                         ])
-                        
+
                         context.fill(
                             Circle().path(in: CGRect(
                                 x: x - orb.radius,
@@ -154,7 +165,7 @@ struct AdaptiveBackground: View {
                     }
                 }
             }
-            .blur(radius: 60)
+            .blur(radius: 40) // Less blur to see more detail through glass
         }
         .ignoresSafeArea()
     }
@@ -162,8 +173,8 @@ struct AdaptiveBackground: View {
 
 // MARK: - Glass Card Container
 
-/// A glass-morphism card container with blur and subtle border
-/// Uses native .glassEffect() on iOS 26+, falls back to material on earlier versions
+/// A Liquid Glass card container using native iOS 26 .glassEffect() API
+/// Supports optional tinting via GlassStyle.regular.tint(color)
 struct GlassCard<Content: View>: View {
     let content: Content
     var tint: Color?
@@ -185,19 +196,19 @@ struct GlassCard<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            // iOS 26 Liquid Glass: Non-interactive display container
             .glassEffect(
-                tint != nil ? .regular.tint(tint!) : .regular,
+                tint.map { .regular.tint($0) } ?? .regular,
                 in: RoundedRectangle(cornerRadius: cornerRadius)
             )
     }
 }
 
-// MARK: - Native iOS 26 Glass Button Style
-// iOS 26 provides native button styles:
-// - .buttonStyle(.glass) - Standard glass button with Liquid Glass effect
+// MARK: - Glass Button Styles
+// iOS 26 provides native Liquid Glass button styles:
+// - .buttonStyle(.glass) - Standard glass button with lensing effect
 // - .buttonStyle(.glassProminent) - Emphasized glass button (use sparingly, for CTAs)
-// For custom interactive glass controls, use .glassEffect(.regular.interactive(), in: Shape())
+// For custom glass controls, use .glassEffect(.regular.interactive(), in: Shape())
+// For grouped glass elements, wrap in GlassEffectContainer for liquid fusion
 
 // MARK: - Glass Pill Button Style
 
@@ -211,20 +222,23 @@ struct GlassPillStyle: ButtonStyle {
         self.tint = tint
     }
 
+    @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let label = configuration.label
             .font(.system(size: 13, weight: .medium))
             .foregroundStyle(isSelected ? .white : .secondary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background {
-                if isSelected {
-                    Capsule().fill(tint)
-                }
+
+        Group {
+            if isSelected {
+                label.background(Capsule().fill(tint))
+            } else {
+                label.glassEffect(.regular, in: Capsule())
             }
-            .glassEffect(isSelected ? .clear : .regular.interactive(), in: Capsule())
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+        }
+        .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
@@ -255,7 +269,7 @@ struct GlassIconButton: View {
                 .font(.system(size: size * 0.4, weight: .medium))
                 .foregroundStyle(tint)
                 .frame(width: size, height: size)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .glassEffect(.regular, in: Circle())
         }
         .buttonStyle(ScaleButtonStyle())
     }
@@ -273,7 +287,7 @@ struct ScaleButtonStyle: ButtonStyle {
 }
 
 // MARK: - Native iOS 26 Slider
-// Use native SwiftUI Slider which automatically gets Liquid Glass styling in iOS 26
+// In iOS 26, native Slider automatically uses Liquid Glass styling
 // Example: Slider(value: $value, in: 0...1).tint(.primary)
 
 // MARK: - Glass Knob
@@ -340,10 +354,11 @@ struct GlassKnob: View {
                     .frame(width: size + 8, height: size + 8)
                     .rotationEffect(.degrees(135))
 
-                // Knob body with native glass effect
+                // Knob body with Liquid Glass
                 Circle()
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .fill(.clear)
                     .frame(width: size, height: size)
+                    .glassEffect(.regular, in: Circle())
                     .shadow(color: isDragging ? tint.opacity(0.4) : .black.opacity(0.1), radius: isDragging ? 8 : 4)
 
                 // Indicator line
@@ -383,8 +398,7 @@ struct GlassKnob: View {
 
 // MARK: - Glass Tab Bar
 
-/// A glass tab bar using native iOS Picker for drag/slide support
-/// In iOS 26, Picker automatically uses Liquid Glass styling
+/// A tab bar using native iOS Picker for drag/slide support
 struct GlassTabBar<Tab: Hashable & CaseIterable & Sendable>: View where Tab: RawRepresentable, Tab.RawValue == String {
     @Binding var selection: Tab
     var tint: Color
@@ -487,10 +501,10 @@ struct GlassDivider: View {
     }
 }
 
-// MARK: - Glass Effect Card (Pedal Style)
+// MARK: - Effect Pedal Card
 
-/// A glass effect card specifically designed for effect pedals
-/// Uses premium liquid glass with specular highlights
+/// A Liquid Glass card specifically designed for effect pedals
+/// Uses native .glassEffect() for premium lensing and refraction
 struct GlassEffectPedal: View {
     let effect: EffectNode
     var isSelected: Bool = false
@@ -531,42 +545,11 @@ struct GlassEffectPedal: View {
                 .lineLimit(1)
         }
         .frame(width: 85, height: 115)
-        .background {
-            ZStack {
-                // Base glass layer
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-
-                // Tint layer when enabled
-                if effect.isEnabled {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(effect.type.color.opacity(0.15))
-                }
-
-                // Specular highlight (glossy look)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [.white.opacity(0.4), .white.opacity(0)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .blendMode(.overlay)
-
-                // Rim light
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.5), .white.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        }
-        .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .glassEffect(
+            effect.isEnabled ? .regular.tint(effect.type.color) : .regular,
+            in: RoundedRectangle(cornerRadius: 16)
+        )
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         .overlay {
             if isSelected {
                 RoundedRectangle(cornerRadius: 16)
@@ -616,17 +599,37 @@ extension Color {
     static let timeColor = Color.blue.opacity(0.8)
 }
 
+// MARK: - Conditional Glass Modifier
+
+/// A view modifier that conditionally applies a glass effect
+struct ConditionalGlassModifier<S: Shape>: ViewModifier {
+    let isEnabled: Bool
+    let shape: S
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - View Extensions
 
 extension View {
-    /// Apply glass card styling - non-interactive display container
+    /// Apply glass card styling with Liquid Glass
     func glassCard(tint: Color? = nil, cornerRadius: CGFloat = 20, padding: CGFloat = 16) -> some View {
         self
             .padding(padding)
-            .glassEffect(tint != nil ? .regular.tint(tint!) : .regular, in: RoundedRectangle(cornerRadius: cornerRadius))
+            .glassEffect(
+                tint.map { .regular.tint($0) } ?? .regular,
+                in: RoundedRectangle(cornerRadius: cornerRadius)
+            )
     }
 
-    /// Apply glass pill styling - non-interactive display container
+    /// Apply glass pill styling with Liquid Glass
     func glassPill() -> some View {
         self
             .padding(.horizontal, 14)
@@ -635,15 +638,15 @@ extension View {
     }
 }
 
-// MARK: - Native iOS 26 Glass Button Styles
-// iOS 26 provides native button styles:
-// - .buttonStyle(.glass) - Standard glass button
-// - .buttonStyle(.glassProminent) - Prominent glass button
-// Use these directly instead of custom implementations
+// MARK: - Native iOS 26 Button Styles
+// Use native button styles for action buttons:
+// - .buttonStyle(.glass) - Liquid Glass button
+// - .buttonStyle(.glassProminent) - Emphasized Liquid Glass button
+// - .buttonStyle(.borderedProminent) - Solid action button
 
-// MARK: - Glass Segment Slider
+// MARK: - Segment Slider
 
-/// A liquid glass segmented slider control using native iOS Picker
+/// A Liquid Glass segmented slider using native iOS Picker
 /// In iOS 26, Picker automatically uses Liquid Glass styling with drag support
 struct GlassSegmentSlider<T: Hashable & CaseIterable, Content: View>: View where T.AllCases: RandomAccessCollection {
     @Binding var selection: T
@@ -661,65 +664,6 @@ struct GlassSegmentSlider<T: Hashable & CaseIterable, Content: View>: View where
     }
 }
 
-// MARK: - Premium Liquid Glass Card
-
-/// A premium liquid glass card with specular highlights and rim lighting
-struct PremiumGlassCard<Content: View>: View {
-    let content: Content
-    var tint: Color?
-    var cornerRadius: CGFloat
-
-    init(
-        tint: Color? = nil,
-        cornerRadius: CGFloat = 20,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.content = content()
-        self.tint = tint
-        self.cornerRadius = cornerRadius
-    }
-
-    var body: some View {
-        content
-            .padding(Spacing.lg)
-            .background {
-                ZStack {
-                    // Base blur layer
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(.ultraThinMaterial)
-
-                    // Tint layer (optional)
-                    if let tint = tint {
-                        RoundedRectangle(cornerRadius: cornerRadius)
-                            .fill(tint.opacity(0.1))
-                    }
-
-                    // Specular highlight (glossy look)
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: [.white.opacity(0.4), .white.opacity(0)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .blendMode(.overlay)
-
-                    // Rim light (edge definition)
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.6), .white.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
-            }
-            .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
-    }
-}
 
 // MARK: - Preview
 
@@ -734,7 +678,7 @@ struct PremiumGlassCard<Content: View>: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Glass Card")
                             .font(.headline)
-                        Text("A translucent container with blur effect")
+                        Text("Liquid Glass container with lensing and refraction")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

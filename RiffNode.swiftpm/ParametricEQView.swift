@@ -19,7 +19,7 @@ struct ParametricEQView: View {
                 onReset: { bands = EQBand.defaultBands }
             )
 
-            // Main EQ Display with glass styling
+            // Main EQ Display with glass styling - larger for direct interaction
             GlassCard(cornerRadius: 16, padding: 0) {
                 ZStack {
                     // Subtle gradient background
@@ -38,19 +38,27 @@ struct ParametricEQView: View {
                     // Smooth frequency response curve with fill
                     GlassEQCurveView(bands: bands, selectedBand: selectedBand)
 
-                    // Draggable band nodes
+                    // Draggable band nodes - tap to select, drag to adjust
                     GlassEQBandNodes(
                         bands: $bands,
                         selectedBand: $selectedBand
                     )
+
+                    // Hint text when no band selected
+                    if selectedBand == nil {
+                        VStack {
+                            Spacer()
+                            Text("Tap a node to select • Drag to adjust")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.bottom, 8)
+                        }
+                    }
                 }
-                .frame(height: 260)
+                .frame(height: 320)
             }
 
-            // Band selector strip
-            GlassEQBandStrip(bands: $bands, selectedBand: $selectedBand)
-
-            // Selected band controls
+            // Selected band controls - compact inline controls
             if let selected = selectedBand {
                 GlassEQBandControls(band: $bands[selected])
                     .transition(.asymmetric(
@@ -85,7 +93,6 @@ struct GlassEQHeader: View {
 
             // Controls
             HStack(spacing: 8) {
-                // Preset picker
                 Button {
                     showPresets.toggle()
                 } label: {
@@ -94,8 +101,13 @@ struct GlassEQHeader: View {
                             .font(.system(size: 11))
                         Text("Presets")
                     }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .glassEffect(.regular, in: Capsule())
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.plain)
                 .popover(isPresented: $showPresets) {
                     GlassEQPresetPicker(bands: $bands, isPresented: $showPresets)
                 }
@@ -115,7 +127,11 @@ struct GlassEQHeader: View {
 
                 // Reset button
                 Button("Reset", action: onReset)
-                    .buttonStyle(.glass)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 10)
+                    .glassEffect(.regular, in: Capsule())
             }
         }
     }
@@ -163,7 +179,7 @@ struct GlassEQPresetPicker: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 8))
+                            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 8))
                         }
                         .buttonStyle(.plain)
                     }
@@ -557,7 +573,7 @@ struct GlassEQBandStrip: View {
 
     var body: some View {
         GlassEffectContainer(spacing: 4) {
-            ForEach(bands.indices, id: \.self) { index in
+            ForEach(Array(bands.indices), id: \.self) { index in
                 let band = bands[index]
                 let isSelected = selectedBand == index
 
@@ -587,7 +603,7 @@ struct GlassEQBandStrip: View {
                     .padding(.vertical, 6)
                 }
                 .glassEffect(
-                    isSelected ? .regular.tint(band.type.color) : .clear,
+                    isSelected ? .regular.tint(band.type.color) : .regular,
                     in: RoundedRectangle(cornerRadius: 8)
                 )
                 .buttonStyle(.plain)
@@ -625,11 +641,17 @@ struct GlassEQBandControls: View {
                             }
                             .frame(width: 46, height: 32)
                             .foregroundStyle(band.type == type ? .black : .secondary)
+                            .background {
+                                if band.type == type {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(type.color.opacity(0.8))
+                                }
+                            }
+                            .modifier(ConditionalGlassModifier(
+                                isEnabled: band.type != type,
+                                shape: RoundedRectangle(cornerRadius: 6)
+                            ))
                         }
-                        .glassEffect(
-                            band.type == type ? .regular.tint(type.color) : .regular,
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
                         .buttonStyle(.plain)
                     }
                 }

@@ -74,12 +74,14 @@ struct WelcomeView: View {
     @State private var viewModel: SetupViewModel?
     @State private var showContent = false
     @State private var setupComplete = false
+    @State private var currentSetupStatus: String = ""
+    @State private var setupSteps: [SetupStepInfo] = []
     @Namespace private var welcomeNamespace
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 60)
-            
+
             // Hero section with large glass logo - centered
             VStack(spacing: Spacing.xl) {
                 // Large glass app icon with custom RiffNode logo - native iOS 26 glass
@@ -89,7 +91,7 @@ struct WelcomeView: View {
                         .fill(Color.riffPrimary.opacity(0.15))
                         .frame(width: 160, height: 160)
                         .blur(radius: 30)
-                    
+
                     // Logo directly on glass - no extra circle border
                     Image("RiffNodeLogo")
                         .renderingMode(.template)
@@ -102,22 +104,22 @@ struct WelcomeView: View {
                 }
                 .scaleEffect(showContent ? 1 : 0.8)
                 .opacity(showContent ? 1 : 0)
-                
+
                 // App name with subtle gradient
                 VStack(spacing: Spacing.sm) {
                     Text("RiffNode")
                         .font(.system(size: 48, weight: .bold, design: .rounded))
                         .foregroundStyle(.primary)
-                    
+
                     Text("Guitar Effects Playground")
                         .font(.title3.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 .opacity(showContent ? 1 : 0)
             }
-            
+
             Spacer(minLength: 40)
-            
+
             // Action buttons - simplified single-step setup
             VStack(spacing: Spacing.md) {
                 if setupComplete {
@@ -133,53 +135,71 @@ struct WelcomeView: View {
                         .foregroundStyle(.primary)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 28)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .glassEffect(.regular, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    
+
                     Button {
                         onSkipToMain()
                     } label: {
                         Text("Skip to Main")
                             .font(.subheadline.weight(.medium))
                             .foregroundStyle(.secondary)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 20)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            .padding(.vertical, 14)
+                            .padding(.horizontal, 28)
+                            .glassEffect(.regular, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                } else {
-                    // Single setup button
-                    Button {
-                        Task {
-                            await viewModel?.performNextStep()
-                            if viewModel?.isSetupComplete == true {
-                                withAnimation(.spring(duration: 0.4)) {
-                                    setupComplete = true
+                } else if viewModel?.isLoading == true {
+                    // Loading state with progress steps
+                    VStack(spacing: Spacing.lg) {
+                        // Progress steps display
+                        VStack(spacing: Spacing.sm) {
+                            ForEach(setupSteps) { step in
+                                HStack(spacing: Spacing.sm) {
+                                    Group {
+                                        if step.isComplete {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundStyle(.green)
+                                        } else if step.isActive {
+                                            ProgressView()
+                                                .controlSize(.small)
+                                        } else {
+                                            Image(systemName: "circle")
+                                                .foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    .frame(width: 20)
+
+                                    Text(step.title)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(step.isActive ? .primary : (step.isComplete ? .secondary : .tertiary))
+
+                                    Spacer()
                                 }
                             }
                         }
+                        .padding(Spacing.lg)
+                        .frame(width: 280)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                    }
+                } else {
+                    // Initial setup button
+                    Button {
+                        startSetup()
                     } label: {
                         HStack(spacing: Spacing.sm) {
-                            if viewModel?.isLoading == true {
-                                ProgressView()
-                                    .controlSize(.small)
-                                Text("Setting Up...")
-                                    .font(.headline.weight(.semibold))
-                            } else {
-                                Image(systemName: "play.fill")
-                                Text("Get Started")
-                                    .font(.headline.weight(.semibold))
-                            }
+                            Image(systemName: "play.fill")
+                            Text("Get Started")
+                                .font(.headline.weight(.semibold))
                         }
                         .foregroundStyle(.primary)
                         .padding(.vertical, 14)
                         .padding(.horizontal, 28)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        .glassEffect(.regular, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .disabled(viewModel?.isLoading == true)
-                    
+
                     // Subtitle explaining what happens
                     Text("Requests microphone access and starts audio engine")
                         .font(.caption)
@@ -205,6 +225,77 @@ struct WelcomeView: View {
             }
         }
     }
+
+    private func startSetup() {
+        Task {
+            // Step 1: Request microphone permission FIRST (shows system dialog immediately)
+            await engine.requestMicrophonePermission()
+
+            // Check if permission was granted
+            guard engine.hasPermission else {
+                engine.errorMessage = "Microphone access is required to use RiffNode."
+                return
+            }
+
+            // Permission granted - now show loading UI for remaining steps
+            setupSteps = [
+                SetupStepInfo(id: 0, title: "Configuring audio session", isActive: true, isComplete: false),
+                SetupStepInfo(id: 1, title: "Initializing effects engine", isActive: false, isComplete: false),
+                SetupStepInfo(id: 2, title: "Starting audio processing", isActive: false, isComplete: false)
+            ]
+
+            // Trigger loading UI
+            viewModel?.isLoading = true
+
+            do {
+                // Step 1: Configure audio session
+                try? await Task.sleep(for: .milliseconds(200))
+
+                // Step 2: Initialize effects engine
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    setupSteps[0].isActive = false
+                    setupSteps[0].isComplete = true
+                    setupSteps[1].isActive = true
+                }
+                try await engine.setupEngine()
+
+                // Step 3: Start audio processing
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    setupSteps[1].isActive = false
+                    setupSteps[1].isComplete = true
+                    setupSteps[2].isActive = true
+                }
+                try engine.start()
+
+                // Complete
+                try? await Task.sleep(for: .milliseconds(300))
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    setupSteps[2].isActive = false
+                    setupSteps[2].isComplete = true
+                }
+
+                // Transition to complete state
+                try? await Task.sleep(for: .milliseconds(400))
+                viewModel?.isLoading = false
+                viewModel?.isSetupComplete = true
+                withAnimation(.spring(duration: 0.4)) {
+                    setupComplete = true
+                }
+            } catch {
+                viewModel?.isLoading = false
+                engine.errorMessage = error.localizedDescription
+            }
+        }
+    }
+}
+
+// MARK: - Setup Step Info
+
+struct SetupStepInfo: Identifiable {
+    let id: Int
+    let title: String
+    var isActive: Bool
+    var isComplete: Bool
 }
 
 
@@ -253,7 +344,7 @@ struct MainInterfaceView: View {
             .padding(.top, Spacing.sm)
 
             HStack(spacing: Spacing.md) {
-                // Left panel - wrapped in glass container
+                // Left panel - wrapped in glass container for liquid fusion effect
                 GlassEffectContainer(spacing: Spacing.md) {
                     VStack(spacing: Spacing.md) {
                         AudioVisualizationPanel(engine: engine)
@@ -570,8 +661,13 @@ struct GlassTopBarView: View {
                     Image(systemName: "square.stack.3d.up.fill")
                     Text("Presets")
                 }
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .glassEffect(.regular, in: Capsule())
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.plain)
 
             // Engine status
             GlassStatusIndicator(
@@ -599,8 +695,8 @@ struct GlassTopBarView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
-        // iOS 26 Liquid Glass: Use native glassEffect for toolbar
-        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 20))
+        // Liquid Glass toolbar
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
     }
 }
 

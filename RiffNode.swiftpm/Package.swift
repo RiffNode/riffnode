@@ -40,8 +40,7 @@ let package = Package(
                 .fileAccess(.downloadsFolder, mode: .readOnly),
                 .fileAccess(.musicFolder, mode: .readOnly),
                 .fileAccess(.pictureFolder, mode: .readOnly),
-                .fileAccess(.moviesFolder, mode: .readOnly),
-                .incomingNetworkConnections()
+                .fileAccess(.moviesFolder, mode: .readOnly)
             ],
             appCategory: .music
         )
